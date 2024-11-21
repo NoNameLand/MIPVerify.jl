@@ -67,3 +67,6 @@ d = MIPVerify.find_adversarial_example(
 )
 print_summary(d)
 
+# Seeing The Difference 
+perturbed_input = JuMP.value.(d[:PerturbedInput])
+colorview(Gray, perturbed_input[1, :, :, 1])

@@ -14,7 +14,7 @@ mnist = MIPVerify.read_datasets("MNIST")
 mnist.train
 
 # Load network
-println("The current dir is: ", pwd())
+#=println("The current dir is: ", pwd())
 path_to_network = "ariel_tries/networks/mnist_model_weights.mat" # Path to network
 data = matread(path_to_network) # read the .mat file
 dict_data = Dict(data) # converting matdict to dict #TODO: understand what's the diffrence
@@ -33,6 +33,23 @@ mnist_nn = Sequential([
             ReLU(),
             dense_2
             ], "MNIST.n1")
+
+=#
+path_to_network = "ariel_tries/networks/mnist2.mat" # Path to network
+data = matread(path_to_network) # read the .mat file
+dict_data = Dict(data) # converting matdict to dict #TODO: understand what's the diffrence
+for (key, value) in dict_data
+    println("$key => $(typeof(value)), size: $(size(value))")
+end
+layer_2 = get_matrix_params(dict_data, "layer_2", (40, 10))
+layer_1 = get_matrix_params(dict_data, "layer_1", (784, 40))
+
+mnist_nn = Sequential([
+            Flatten(4),
+            layer_1,
+            ReLU(),
+            layer_2,
+            ], "MNIST.n2")
 
 # Trying to find adverserial
 using JuMP
@@ -59,7 +76,7 @@ d = MIPVerify.find_adversarial_example(
     mnist_nn,
     sample_image,
     9,
-    HiGHS.Optimizer,
+    Gurobi.Optimizer,
     Dict("output_flag" => false),
     pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.105),
     norm_order = Inf,
@@ -67,6 +84,3 @@ d = MIPVerify.find_adversarial_example(
 )
 print_summary(d)
 
-# Seeing The Difference 
-perturbed_input = JuMP.value.(d[:PerturbedInput])
-colorview(Gray, perturbed_input[1, :, :, 1])

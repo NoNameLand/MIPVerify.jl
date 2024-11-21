@@ -1,38 +1,74 @@
 using MIPVerify
 using Flux
+using MAT
+using OrderedCollections
 
-function create_sequential_model(mat_file::String)
+function create_sequential_model(mat_file::String, model_name::String)
     # Read the neural network from the .mat file using MIPVerify
-    net = read_network(mat_file)
-
+    data = matread(path_to_network) # read the .mat file
+    dict_data = Dict(data) # converting matdict to dict #TODO: understand what's the diffrence
     layers = []
+    order_lst = []
+    # Ordering the dictionary
+    function sort_dict_by_key_number(dict::Dict)
+        # Extract keys and sort them based on the number in the key
+        sorted_keys = sort(collect(keys(dict)), by = key -> begin
+            m = match(r"\d+", key)
+            m !== nothing ? parse(Int, m.match) : typemax(Int)  # Place non-numeric keys at the end
+        end)
+        
+        # Create an OrderedDict with sorted keys
+        sorted_dict = OrderedDict(key => dict[key] for key in sorted_keys)
+        
+        return sorted_dict
+    end
 
-    for l in 1:net.num_layers
-        # Extract weights and biases for the current layer
-        W = net.W[l]
-        b = net.b[l]
-        in_dim = size(W, 2)
-        out_dim = size(W, 1)
+    function extract_number(s::String)
+        # Match the first sequence of digits in the string
+        match_obj = match(r"\d+", s)
+        
+        # If a match is found, convert it to an integer
+        if match_obj !== nothing
+            return parse(Int, match_obj.match)
+        else
+            return typemax(Int)  # Return a very large number if no number is found
+        end
+    end
+    
+    
+    # dict_data = sort_dict_by_key_number(dict_data)
 
-        # Create a Dense layer with the extracted weights and biases
-        fc_layer = Dense(in_dim, out_dim)
-        fc_layer.W .= W
-        fc_layer.b .= b
+    # Defiing the regular expression
+    pattern = r"^layer_\d+/weight$"
 
-        push!(layers, fc_layer)
+    for (key, value) in dict_data
+        if occursin(pattern, string(key))
+            println("Added the layer to the list: ", string(key))
+            name_val = split(string(key), "/")[1]
+            size_val = size(value)
+            layer = get_matrix_params(dict_data, string(name_val), size_val)
+            push!(layers, layer)
+            push!(order_lst, extract_number(string(name_val)))
 
-        # Add activation function if it's not the last layer
-        if l < net.num_layers
-            activation = net.activations[l]
-            if activation == relu
-                push!(layers, Flux.relu)
-            else
-                error("Unsupported activation function")
-            end
+        end
+        println("$key => $(typeof(value)), size: $(size(value))")
+    end
+
+    # Ordering the layers
+    index_ordered = sortperm(order_lst)
+    layers = layers[index_ordered]    
+
+    modified_layers = []
+    push!(modified_layers, Flatten(4))
+
+    for i in 1:length(layers)
+        push!(modified_layers, layers[i])
+        if i < length(layers)
+            push!(modified_layers, ReLU())
         end
     end
 
-    # Create a sequential model using Chain
-    model = Chain(layers...)
+    model = Sequential(modified_layers, model_name)
+
     return model
 end

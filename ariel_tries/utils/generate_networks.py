@@ -34,4 +34,4 @@ train_model(
 )
 
 # Adjust the model weights for MIPVerify.jl
-adjust_model_weights('trained_small_mnist_model.mat', 'adjusted_small_mnist_model.mat')
+adjust_model_weights('ariel_tries/networks/trained_small_mnist_model.mat', 'ariel_tries/networks/adjusted_small_mnist_model.mat')

@@ -111,10 +111,9 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     layers = []
     num_layers = len(sorted_layers)
     prev_layer_type = None  # Keep track of the previous layer type
-
     for idx, (layer_num, params) in enumerate(sorted_layers):
         weight = params.get('weight')
-        bias = params.get('bias')
+        bias = params.get('bias').squeeze()
         stride = int(params.get('stride', 1))
         padding = int(params.get('padding', 0))
 
@@ -127,14 +126,12 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
             linear_layer = nn.Linear(in_features, out_features)
             linear_layer.weight.data = torch.from_numpy(weight).float()
             linear_layer.bias.data = torch.from_numpy(bias).float()
-
             # Insert Flatten if previous layer was Conv2d
             if prev_layer_type == 'Conv2d':
                 layers.append(nn.Flatten())
 
             layers.append(linear_layer)
             prev_layer_type = 'Linear'
-
         elif weight.ndim == 4:
             # Convolutional layer
             out_channels, in_channels, kernel_height, kernel_width = weight.shape
@@ -143,7 +140,6 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
             conv_layer.bias.data = torch.from_numpy(bias).float()
             layers.append(conv_layer)
             prev_layer_type = 'Conv2d'
-
         else:
             raise ValueError(f"Unsupported weight dimensions: {weight.shape}")
 
@@ -153,6 +149,8 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
 
     # Create the sequential model
     model = nn.Sequential(*layers)
+    print("\nModel Architechture:")
+    print(model)
     print("Model loaded successfully.")
 
     # Step 2: Load the dataset from the .mat file

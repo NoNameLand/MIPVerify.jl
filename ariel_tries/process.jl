@@ -29,12 +29,12 @@ path_to_network = "ariel_tries/networks/mnist2.mat" # Path to network
 model = create_sequential_model(path_to_network, "model.n1")
 
 # Choosing the input to find adverserial attack against
-sample_image = MIPVerify.get_image(mnist.test.images, 1)
+sample_image = MIPVerify.get_image(mnist.test.images, 4)
 
 d = MIPVerify.find_adversarial_example(
     model,
     sample_image,
-    [1, 2, 3, 4, 5, 6, 8, 9, 10],
+    8,
     Gurobi.Optimizer,
     Dict("output_flag" => false),
     pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.105),

@@ -3,6 +3,18 @@ using Flux
 using MAT
 using OrderedCollections
 
+function extract_number(s::String)
+    # Match the first sequence of digits in the string
+    match_obj = match(r"\d+", s)
+    
+    # If a match is found, convert it to an integer
+    if match_obj !== nothing
+        return parse(Int, match_obj.match)  # Or Float64 if you need a floating-point number
+    else
+        error("No number found in the string")
+    end
+end
+
 function create_sequential_model(mat_file::String, model_name::String)
     # Read the neural network from the .mat file
     data = matread(mat_file)

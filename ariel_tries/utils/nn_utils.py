@@ -187,3 +187,48 @@ def combine_mat_files(mat_file1, mat_file2, output_file):
     sio.savemat(output_file, combined_data)
     print(f"Combined .mat file saved to {output_file}")
     
+    
+def adjust_model_weights(input_model_path, output_model_path):
+    """
+    Adjusts the weight matrices of a neural network model saved in a .mat file
+    so that the weight matrices have the shape (in_features, out_features),
+    which is required by MIPVerify.jl.
+
+    Parameters:
+        input_model_path (str): Path to the input .mat file containing the model.
+        output_model_path (str): Path to save the adjusted model .mat file.
+    """
+    # Load the model from the .mat file
+    model_data = sio.loadmat(input_model_path)
+
+    # Extract keys excluding MATLAB metadata keys
+    keys = [key for key in model_data.keys() if not key.startswith('__')]
+
+    adjusted_model_data = {}
+
+    for key in keys:
+        # Check if the key corresponds to weight or bias
+        if 'weight' in key or 'bias' in key:
+            # Match layer number and parameter type
+            match = re.match(r'(layer_\d+)/(weight|bias)', key)
+            if match:
+                layer_name = match.group(1)
+                param_type = match.group(2)
+                param = model_data[key]
+
+                # If it's a weight matrix, transpose it
+                if param_type == 'weight':
+                    param = param.T  # Transpose the weight matrix
+
+                # Save the adjusted parameter
+                adjusted_model_data[f'{layer_name}/{param_type}'] = param
+            else:
+                print(f"Warning: Key '{key}' does not match expected pattern and will be ignored.")
+        else:
+            # Copy other data as is
+            adjusted_model_data[key] = model_data[key]
+
+    # Save the adjusted model to a .mat file
+    sio.savemat(output_model_path, adjusted_model_data)
+    print(f"Adjusted model saved to {output_model_path}")
+    

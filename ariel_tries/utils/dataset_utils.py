@@ -27,10 +27,10 @@ def save_mnist_to_mat(mat_file_path):
 
     # Convert images to numpy arrays and reshape them
     train_set = train_images.numpy().reshape(-1, 28*28)  # Flatten images
-    train_labels = train_labels.numpy()
+    train_labels = train_labels.numpy().transpose()
 
     test_set = test_images.numpy().reshape(-1, 28*28)
-    test_labels = test_labels.numpy()
+    test_labels = test_labels.numpy().transpose()
 
     # Create a dictionary to save to .mat file
     mnist_data = {

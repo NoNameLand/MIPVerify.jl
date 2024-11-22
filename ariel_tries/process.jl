@@ -34,7 +34,7 @@ sample_image = MIPVerify.get_image(mnist.test.images, 1)
 d = MIPVerify.find_adversarial_example(
     model,
     sample_image,
-    9,
+    [1, 2, 3, 4, 5, 6, 8, 9, 10],
     Gurobi.Optimizer,
     Dict("output_flag" => false),
     pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.105),
@@ -48,4 +48,4 @@ view_diff(diff[1, :, :, 1])
 
 perturbed_input = JuMP.value.(d[:PerturbedInput])
 colorview(Gray, perturbed_input[1, :, :, 1])
-#colorview(Gray, sample_image[1, :, :, 1])
+# colorview(Gray, sample_image[1, :, :, 1])

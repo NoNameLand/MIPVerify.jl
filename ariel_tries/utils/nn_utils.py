@@ -31,7 +31,7 @@ def save_fc_layers(input_size, layer_sizes, save_path):
         biases_name = f"{layer_name}/bias"
         
         # Randomly initialize weights and biases
-        weights = np.random.randn(previous_size, size)
+        weights = np.random.randn(size, previous_size)
         biases = np.random.randn(size)
 
         # Store weights and biases in the dictionary
@@ -40,6 +40,7 @@ def save_fc_layers(input_size, layer_sizes, save_path):
         
         # Update previous size for the next layer
         previous_size = size
+        
 
     # Save the model layers to a .mat file
     sio.savemat(save_path, model_layers)
@@ -90,8 +91,8 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
             raise ValueError(f"Layer {layer_num} is missing 'weight' or 'bias'.")
 
         # Create Linear layer
-        in_features = weight.shape[1]
-        out_features = weight.shape[0]
+        in_features = weight.shape[0]
+        out_features = weight.shape[1]
         linear_layer = nn.Linear(in_features, out_features)
         linear_layer.weight.data = torch.from_numpy(weight).float()
         linear_layer.bias.data = torch.from_numpy(bias).float()
@@ -116,7 +117,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
         raise KeyError("The dataset file must contain 'train_set' and 'train_labels'.")
 
     train_set = torch.from_numpy(dataset["train_set"]).float()
-    train_labels = torch.from_numpy(dataset["train_labels"]).float()
+    train_labels = torch.from_numpy(dataset["train_labels"]).float().transpose(1,0)
     print("Dataset loaded successfully.")
 
     # Step 3: Prepare DataLoader
@@ -185,3 +186,4 @@ def combine_mat_files(mat_file1, mat_file2, output_file):
     # Save the combined data into a new .mat file
     sio.savemat(output_file, combined_data)
     print(f"Combined .mat file saved to {output_file}")
+    

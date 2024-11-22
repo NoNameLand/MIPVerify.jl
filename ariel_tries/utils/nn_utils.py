@@ -63,7 +63,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     layer_params = {}
     for key in keys:
         if 'weight' in key or 'bias' in key:
-            match = re.match(r'layer(\d+)_(weight|bias)', key)
+            match = re.match(r'layer_(\d+)/(weight|bias)', key)
             if match:
                 layer_num = int(match.group(1))
                 param_type = match.group(2)
@@ -166,3 +166,22 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     # Save the parameters to a .mat file
     sio.savemat(output_mat_path, trained_params)
     print(f"Model saved to {output_mat_path}")
+    
+    
+    
+def combine_mat_files(mat_file1, mat_file2, output_file):
+    # Load the data from the two .mat files
+    data1 = sio.loadmat(mat_file1)
+    data2 = sio.loadmat(mat_file2)
+
+    # Remove MATLAB metadata entries
+    data1 = {key: value for key, value in data1.items() if not key.startswith('__')}
+    data2 = {key: value for key, value in data2.items() if not key.startswith('__')}
+
+    # Combine the dictionaries
+    combined_data = {**data1, **data2}
+    # Note: If there are duplicate keys, data from data2 will overwrite data1
+
+    # Save the combined data into a new .mat file
+    sio.savemat(output_file, combined_data)
+    print(f"Combined .mat file saved to {output_file}")

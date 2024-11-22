@@ -31,7 +31,7 @@ function create_sequential_model(mat_file::String, model_name::String)
             println("Processing layer: ", string(key))
             name_val = split(string(key), "/")[1]  # Extract 'layer_X'
             size_val = size(value)
-            layer_num = extract_number(string(name_val))
+            layer_num = extract_number(name_val)
 
             # Determine layer type based on weight dimensions
             if length(size_val) == 2
@@ -39,12 +39,25 @@ function create_sequential_model(mat_file::String, model_name::String)
                 expected_size = size_val
                 layer = get_matrix_params(
                     dict_data,
-                    string(name_val),
+                    name_val,
                     expected_size
                 )
             elseif length(size_val) == 4
                 # Convolutional Layer
-                expected_size = size_val
+                # Adjust the weights to match MIPVerify's expected format
+                weight_key = "$name_val/weight"
+                weights = dict_data[weight_key]
+
+                # Transpose weights from PyTorch format to MIPVerify format
+                # PyTorch: (out_channels, in_channels, kernel_height, kernel_width)
+                # MIPVerify: (kernel_height, kernel_width, in_channels, out_channels)
+                weights = permutedims(weights, (3, 4, 2, 1))
+
+                # Update the weights in dict_data
+                dict_data[weight_key] = weights
+
+                # Update expected_size after transposition
+                expected_size = size(weights)
 
                 # Retrieve stride and padding if available, else use defaults
                 stride_key = "$name_val/stride"
@@ -55,7 +68,7 @@ function create_sequential_model(mat_file::String, model_name::String)
 
                 layer = get_conv_params(
                     dict_data,
-                    string(name_val),
+                    name_val,
                     expected_size;
                     expected_stride = expected_stride,
                     padding = padding
@@ -100,4 +113,5 @@ function create_sequential_model(mat_file::String, model_name::String)
 
     return model
 end
+
 

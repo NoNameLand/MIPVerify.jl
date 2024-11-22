@@ -25,7 +25,7 @@ include("utils/create_sequential_model.jl")
 
 # Creating Model
 println("The current dir is: ", pwd())
-path_to_network = "ariel_tries/networks/mnist2.mat" # Path to network
+path_to_network = "ariel_tries/networks/adjusted_small_mnist_model.mat" # Path to network
 model = create_sequential_model(path_to_network, "model.n1")
 
 # Choosing the input to find adverserial attack against

@@ -1,6 +1,6 @@
 from nn_utils import train_model, save_model_layers, adjust_model_weights
 
-nn_path = "ariel_tries/networks/mnist2.mat"
+nn_path = "ariel_tries/networks.mat"
 dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dataset
 
 layer_definitions = [

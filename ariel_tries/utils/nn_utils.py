@@ -124,14 +124,14 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
             out_features, in_features = weight.shape
             linear_layer = nn.Linear(in_features, out_features)
             linear_layer.weight.data = torch.from_numpy(weight).float()
-            linear_layer.bias.data = torch.from_numpy(bias).float()
+            linear_layer.bias.data = torch.from_numpy(bias).float().squeeze()
             layers.append(linear_layer)
         elif weight.ndim == 4:
             # Convolutional layer
             out_channels, in_channels, kernel_height, kernel_width = weight.shape
             conv_layer = nn.Conv2d(in_channels, out_channels, kernel_size=(kernel_height, kernel_width), stride=stride, padding=padding)
             conv_layer.weight.data = torch.from_numpy(weight).float()
-            conv_layer.bias.data = torch.from_numpy(bias).float()
+            conv_layer.bias.data = torch.from_numpy(bias).float().squeeze()
             layers.append(conv_layer)
         else:
             raise ValueError(f"Unsupported weight dimensions: {weight.shape}")
@@ -160,6 +160,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     # Reshape and convert data based on the first layer
     if isinstance(layers[0], nn.Conv2d):
         # Assuming images are stored as (num_samples, height, width) or (num_samples, channels, height, width)
+        train_set = train_set.reshape(train_set.shape[0], 28, 28) # assuming 1 channel # TODO: Add support for multiple channels
         if train_set.ndim == 3:
             # Add channel dimension
             train_set = np.expand_dims(train_set, axis=1)
@@ -169,16 +170,18 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
         else:
             raise ValueError("Unsupported train_set shape for convolutional layers.")
     else:
+        pass
         # Flatten input for fully connected layers
-        train_set = train_set.reshape(train_set.shape[0], -1)
+        #train_set = train_set.reshape(train_set.shape[0], -1)
+        # Already Flattened
 
     train_set = torch.from_numpy(train_set).float()
 
     # Process labels
-    if train_labels.ndim > 1 and train_labels.shape[1] > 1:
+    if train_labels.ndim > 1 and train_labels.shape[0] > 1:
         # One-hot encoded labels
-        train_labels = np.argmax(train_labels, axis=1)
-    elif train_labels.ndim > 1 and train_labels.shape[1] == 1:
+        train_labels = np.argmax(train_labels, axis=0)
+    elif train_labels.ndim > 1 and train_labels.shape[0] == 1:
         train_labels = train_labels.squeeze()
     train_labels = torch.from_numpy(train_labels).long()
     print("Dataset loaded successfully.")

@@ -25,7 +25,7 @@ save_model_layers(layer_definitions, 'ariel_tries/networks/small_mnist_model.mat
 # Train the model
 train_model(
     network_path='ariel_tries/networks/small_mnist_model.mat',
-    dataset_path='deps/datasets/mnist_data.mat',  # Ensure this file contains your MNIST data
+    dataset_path='deps/datasets/mnist/mnist_data.mat',  # Ensure this file contains your MNIST data
     output_pth_path='ariel_tries/networks/trained_small_mnist_model.pth',
     output_mat_path='ariel_tries/networks/trained_small_mnist_model.mat',
     epochs=5,

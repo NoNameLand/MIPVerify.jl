@@ -4,67 +4,83 @@ using MAT
 using OrderedCollections
 
 function create_sequential_model(mat_file::String, model_name::String)
-    # Read the neural network from the .mat file using MIPVerify
-    data = matread(path_to_network) # read the .mat file
-    dict_data = Dict(data) # converting matdict to dict #TODO: understand what's the diffrence
+    # Read the neural network from the .mat file
+    data = matread(mat_file)
+    dict_data = Dict(data)
+
     layers = []
     order_lst = []
-    # Ordering the dictionary
-    function sort_dict_by_key_number(dict::Dict)
-        # Extract keys and sort them based on the number in the key
-        sorted_keys = sort(collect(keys(dict)), by = key -> begin
-            m = match(r"\d+", key)
-            m !== nothing ? parse(Int, m.match) : typemax(Int)  # Place non-numeric keys at the end
-        end)
-        
-        # Create an OrderedDict with sorted keys
-        sorted_dict = OrderedDict(key => dict[key] for key in sorted_keys)
-        
-        return sorted_dict
-    end
 
-    function extract_number(s::String)
-        # Match the first sequence of digits in the string
-        match_obj = match(r"\d+", s)
-        
-        # If a match is found, convert it to an integer
-        if match_obj !== nothing
-            return parse(Int, match_obj.match)
-        else
-            return typemax(Int)  # Return a very large number if no number is found
-        end
-    end
-    
-    
-    # dict_data = sort_dict_by_key_number(dict_data)
-
-    # Defiing the regular expression
+    # Define the pattern to match layer weights
     pattern = r"^layer_\d+/weight$"
 
     for (key, value) in dict_data
         if occursin(pattern, string(key))
-            println("Added the layer to the list: ", string(key))
-            name_val = split(string(key), "/")[1]
+            println("Processing layer: ", string(key))
+            name_val = split(string(key), "/")[1]  # Extract 'layer_X'
             size_val = size(value)
-            layer = get_matrix_params(dict_data, string(name_val), size_val)
-            push!(layers, layer)
-            push!(order_lst, extract_number(string(name_val)))
+            layer_num = extract_number(name_val)
 
+            # Determine layer type based on weight dimensions
+            if length(size_val) == 2
+                # Fully Connected Layer
+                expected_size = size_val
+                layer = get_matrix_params(
+                    dict_data,
+                    name_val,
+                    expected_size
+                )
+            elseif length(size_val) == 4
+                # Convolutional Layer
+                expected_size = size_val
+
+                # Retrieve stride and padding if available, else use defaults
+                stride_key = "$name_val/stride"
+                padding_key = "$name_val/padding"
+
+                expected_stride = get(dict_data, stride_key, 1)
+                padding = get(dict_data, padding_key, SamePadding())
+
+                layer = get_conv_params(
+                    dict_data,
+                    name_val,
+                    expected_size;
+                    expected_stride = expected_stride,
+                    padding = padding
+                )
+            else
+                error("Unsupported layer type with weight dimensions: $(size_val)")
+            end
+
+            push!(layers, layer)
+            push!(order_lst, layer_num)
         end
-        println("$key => $(typeof(value)), size: $(size(value))")
+        # Optional: Print key information for debugging
+        # println("$key => $(typeof(value)), size: $(size(value))")
     end
 
-    # Ordering the layers
+    # Order the layers based on their layer numbers
     index_ordered = sortperm(order_lst)
-    layers = layers[index_ordered]    
+    layers = layers[index_ordered]
 
     modified_layers = []
-    push!(modified_layers, Flatten(4))
+
+    # Determine if the first layer is convolutional
+    if isa(layers[1], Conv2d)
+        # No need to flatten before convolutional layers
+    else
+        # Flatten the input if the first layer is fully connected
+        push!(modified_layers, Flatten())
+    end
 
     for i in 1:length(layers)
         push!(modified_layers, layers[i])
+
+        # Add activation functions after each layer except the last
         if i < length(layers)
-            push!(modified_layers, ReLU())
+            if isa(layers[i], Linear) || isa(layers[i], Conv2d)
+                push!(modified_layers, ReLU())
+            end
         end
     end
 
@@ -72,3 +88,4 @@ function create_sequential_model(mat_file::String, model_name::String)
 
     return model
 end
+

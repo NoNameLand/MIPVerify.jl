@@ -1,4 +1,4 @@
-from nn_utils import combine_mat_files
+from dataset_utils import save_mnist_to_mat
 
-combine_mat_files("deps/datasets/mnist/mnist_int_train.mat", "deps/datasets/mnist/mnist_int_test.mat", "deps/datasets/mnist/mnist_data.mat")
+save_mnist_to_mat("deps/datasets/mnist/mnist_data.mat")
     

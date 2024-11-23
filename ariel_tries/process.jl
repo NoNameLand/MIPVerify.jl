@@ -23,6 +23,10 @@ end
 # Including functions
 include("utils/create_sequential_model.jl")
 
+# Loading mnist 
+mnist = MIPVerify.read_datasets("MNIST")
+mnist.train
+
 # Creating Model
 println("The current dir is: ", pwd())
 path_to_network = "ariel_tries/networks/adjusted_small_mnist_model.mat" # Path to network

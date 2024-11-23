@@ -31,7 +31,7 @@ function create_sequential_model(mat_file::String, model_name::String)
             println("Processing layer: ", string(key))
             name_val = split(string(key), "/")[1]  # Extract 'layer_X'
             size_val = size(value)
-            layer_num = extract_number(name_val)
+            layer_num = extract_number(string(name_val))
 
             # Determine layer type based on weight dimensions
             if length(size_val) == 2
@@ -39,7 +39,7 @@ function create_sequential_model(mat_file::String, model_name::String)
                 expected_size = size_val
                 layer = get_matrix_params(
                     dict_data,
-                    name_val,
+                    string(name_val),
                     expected_size
                 )
             elseif length(size_val) == 4
@@ -68,7 +68,7 @@ function create_sequential_model(mat_file::String, model_name::String)
 
                 layer = get_conv_params(
                     dict_data,
-                    name_val,
+                    string(name_val),
                     expected_size;
                     expected_stride = expected_stride,
                     padding = padding
@@ -105,6 +105,9 @@ function create_sequential_model(mat_file::String, model_name::String)
         if i < length(layers)
             if isa(layers[i], Linear) || isa(layers[i], Conv2d)
                 push!(modified_layers, ReLU())
+            end
+            if isa(layers[i], Conv2d)
+                push!(modified_layers, Flatten(4))
             end
         end
     end

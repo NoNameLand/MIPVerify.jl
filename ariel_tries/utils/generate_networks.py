@@ -54,33 +54,33 @@ dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dat
 layer_definitions = [
     # First Convolutional Layer
     {
-        type = :conv,
-        in_channels = 1,         # MNIST images have 1 channel (grayscale)
-        out_channels = 8,        # Reduced the number of filters
-        kernel_size = 3,         # Smaller kernel size of 3x3
-        stride = 1,
-        padding = 1              # Minimal padding to preserve spatial dimensions
+        'type': 'conv',
+        'in_channels': 1,         # MNIST images have 1 channel (grayscale)
+        'out_channels': 8,        # Reduced the number of filters
+        'kernel_size': 3,         # Smaller kernel size of 3x3
+        'stride': 1,
+        'padding': 1              # Minimal padding to preserve spatial dimensions
     },
     # Second Convolutional Layer
     {
-        type = :conv,
-        in_channels = 8,
-        out_channels = 16,       # Fewer filters in the second layer
-        kernel_size = 3,
-        stride = 1,
-        padding = 1
+        'type': 'conv',
+        'in_channels': 8,
+        'out_channels': 16,       # Fewer filters in the second layer
+        'kernel_size': 3,
+        'stride': 1,
+        'padding': 1
     },
     # Fully Connected Layer
     {
-        type = :fc,
-        in_features = 16 * 7 * 7,  # Output from conv layers after 2x2 pooling
-        out_features = 64          # Smaller dense layer with 64 units
+        'type': 'fc',
+        'in_features': 16 * 28 * 28,  # Output from conv layers after 2x2 pooling
+        'out_features': 64          # Smaller dense layer with 64 units
     },
     # Final Classification Layer
     {
-        type = :fc,
-        in_features = 64,
-        out_features = 10          # 10 classes for MNIST digits
+        'type': 'fc',
+        'in_features': 64,
+        'out_features': 10          # 10 classes for MNIST digits
     }
 ]
 

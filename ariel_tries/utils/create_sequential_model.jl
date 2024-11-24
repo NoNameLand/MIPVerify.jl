@@ -64,6 +64,7 @@ function create_sequential_model(mat_file::String, model_name::String)
                 padding_key = "$name_val/padding"
 
                 expected_stride = get(dict_data, stride_key, 1)
+                #println("Expected Stride: ", expected_stride)
                 padding = get(dict_data, padding_key, SamePadding())
 
                 layer = get_conv_params(
@@ -87,15 +88,16 @@ function create_sequential_model(mat_file::String, model_name::String)
     # Order the layers based on their layer numbers
     index_ordered = sortperm(order_lst)
     layers = layers[index_ordered]
+    println("Layers: ", layers)
 
     modified_layers = []
 
     # Determine if the first layer is convolutional
-    if isa(layers[1], Conv2d)
+    if isa(layers[1], Conv2d) #&& !isa(layers[2], Conv2d)
         # No need to flatten before convolutional layers
     else
         # Flatten the input if the first layer is fully connected
-        push!(modified_layers, Flatten())
+        push!(modified_layers, Flatten(4))
     end
 
     for i in 1:length(layers)
@@ -106,7 +108,7 @@ function create_sequential_model(mat_file::String, model_name::String)
             if isa(layers[i], Linear) || isa(layers[i], Conv2d)
                 push!(modified_layers, ReLU())
             end
-            if isa(layers[i], Conv2d)
+            if isa(layers[i], Conv2d) && !isa(layers[i+1], Conv2d)
                 push!(modified_layers, Flatten(4)) #TOD: Test if 4 is always true
             end
         end

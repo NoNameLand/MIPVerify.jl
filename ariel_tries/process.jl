@@ -24,7 +24,7 @@ end
 include("utils/create_sequential_model.jl")
 
 # Setting log outputs 
-MIPVerify.set_log_level("debug")
+# MIPVerify.set_log_level("debug")
 
 # Loading mnist 
 mnist = MIPVerify.read_datasets("MNIST")
@@ -36,7 +36,7 @@ path_to_network = "ariel_tries/networks/adjusted_small_mnist_model.mat" # Path t
 model = create_sequential_model(path_to_network, "model.n1")
 println(model)
 
-image_num = 4 # The sample number
+image_num = 1 # The sample number
 # Choosing the input to find adverserial attack against
 sample_image = MIPVerify.get_image(mnist.test.images, image_num)
 

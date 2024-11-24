@@ -107,7 +107,7 @@ function create_sequential_model(mat_file::String, model_name::String)
                 push!(modified_layers, ReLU())
             end
             if isa(layers[i], Conv2d)
-                push!(modified_layers, Flatten(4))
+                push!(modified_layers, Flatten(4)) #TOD: Test if 4 is always true
             end
         end
     end

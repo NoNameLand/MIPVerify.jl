@@ -41,7 +41,7 @@ layer_definitions = [
     # Fully Connected Layer
     {
         'type': 'fc',
-        'in_features': 32 * 7 * 7,  # Output from conv layers after 2x2 pooling
+        'in_features': 32 * 28 * 28,  # Output from conv layers after 2x2 pooling
         'out_features': 128         # Dense layer with 128 units
     },
     # Final Classification Layer

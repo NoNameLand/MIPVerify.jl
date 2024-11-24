@@ -32,3 +32,8 @@ Manifest.toml
 *.bson
 *.h5
 *.txt
+
+# ignore data
+ariel/data
+data/
+.idea/

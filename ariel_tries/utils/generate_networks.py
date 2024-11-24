@@ -3,7 +3,7 @@ from nn_utils import train_model, save_model_layers, adjust_model_weights
 nn_path = "ariel_tries/networks.mat"
 dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dataset
 
-"""layer_definitions = [
+layer_definitions = [
     {
         'type': 'conv',
         'in_channels': 1,         # MNIST images have 1 channel (grayscale)
@@ -17,7 +17,7 @@ dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dat
         'in_features': 6 * 24 * 24,  # Output from conv layer flattened
         'out_features': 10           # 10 classes for MNIST digits
     }
-]""" # Last layer
+] # Last layer
 
 """layer_definitions = [
     # First Convolutional Layer
@@ -51,7 +51,7 @@ dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dat
         'out_features': 10          # 10 classes for MNIST digits
     }
 ]"""
-layer_definitions = [
+"""layer_definitions = [
     # First Convolutional Layer
     {
         'type': 'conv',
@@ -82,7 +82,7 @@ layer_definitions = [
         'in_features': 64,
         'out_features': 10          # 10 classes for MNIST digits
     }
-]
+]"""
 
 
 

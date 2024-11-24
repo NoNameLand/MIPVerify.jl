@@ -29,3 +29,6 @@ Manifest.toml
 
 # Ignore datasets in mat files
 *.mat
+*.bson
+*.h5
+*.txt

@@ -93,7 +93,7 @@ function create_sequential_model(mat_file::String, model_name::String)
     modified_layers = []
 
     # Determine if the first layer is convolutional
-    if isa(layers[1], Conv2d) #&& !isa(layers[2], Conv2d)
+    if !isa(layers[1], Linear) #&& !isa(layers[2], Conv2d)
         # No need to flatten before convolutional layers
     else
         # Flatten the input if the first layer is fully connected
@@ -105,10 +105,8 @@ function create_sequential_model(mat_file::String, model_name::String)
 
         # Add activation functions after each layer except the last
         if i < length(layers)
-            if isa(layers[i], Linear) || isa(layers[i], Conv2d)
-                push!(modified_layers, ReLU())
-            end
-            if isa(layers[i], Conv2d) && !isa(layers[i+1], Conv2d)
+            push!(modified_layers, ReLU())
+            if !isa(layers[i+1], Linear) && !isa(layers[i], Linear)
                 push!(modified_layers, Flatten(4)) #TOD: Test if 4 is always true
             end
         end

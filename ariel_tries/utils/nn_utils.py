@@ -7,7 +7,6 @@ import numpy as np
 import os
 import re
 
-
 def save_model_layers(layer_definitions, save_path):
     """
     Creates a model representation with specified layers and saves it to a .mat file.
@@ -21,6 +20,7 @@ def save_model_layers(layer_definitions, save_path):
     for i, layer_def in enumerate(layer_definitions):
         layer_name = f"layer_{i+1}"
         layer_type = layer_def['type']
+        model_layers[f"{layer_name}/type"] = layer_type  # Store layer type as string
 
         if layer_type == 'fc':
             # Fully Connected Layer
@@ -65,6 +65,31 @@ def save_model_layers(layer_definitions, save_path):
             model_layers[biases_name] = biases
             model_layers[f"{layer_name}/stride"] = np.array([stride])
             model_layers[f"{layer_name}/padding"] = np.array([padding])
+            model_layers[f"{layer_name}/kernel_size"] = np.array(kernel_size)
+
+        elif layer_type == 'pool':
+            # Pooling Layer
+            kernel_size_name = f"{layer_name}/kernel_size"
+            stride_name = f"{layer_name}/stride"
+            padding_name = f"{layer_name}/padding"
+            pool_type_name = f"{layer_name}/pool_type"
+
+            kernel_size = layer_def.get('kernel_size', 2)
+            stride = layer_def.get('stride', kernel_size)
+            padding = layer_def.get('padding', 0)
+            pool_type = layer_def.get('pool_type', 'max')  # 'max' or 'avg'
+
+            # Ensure kernel_size is a tuple
+            if isinstance(kernel_size, int):
+                kernel_size = (kernel_size, kernel_size)
+            if isinstance(stride, int):
+                stride = (stride, stride)
+
+            # Save the parameters
+            model_layers[kernel_size_name] = np.array(kernel_size)
+            model_layers[stride_name] = np.array(stride)
+            model_layers[padding_name] = np.array([padding])
+            model_layers[pool_type_name] = pool_type  # Store as string
 
         else:
             raise ValueError(f"Unsupported layer type: {layer_type}")
@@ -72,8 +97,7 @@ def save_model_layers(layer_definitions, save_path):
     # Save the model layers to a .mat file
     sio.savemat(save_path, model_layers)
     print(f"Model saved to {save_path}")
- 
-    
+
 
 def train_model(network_path, dataset_path, output_pth_path, output_mat_path, epochs=10, batch_size=32, learning_rate=0.001):
     print("Starting process...")
@@ -112,40 +136,89 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     num_layers = len(sorted_layers)
     prev_layer_type = None  # Keep track of the previous layer type
     for idx, (layer_num, params) in enumerate(sorted_layers):
-        weight = params.get('weight')
-        bias = params.get('bias').squeeze()
-        stride = int(params.get('stride', 1))
-        padding = int(params.get('padding', 0))
+            # Get layer type
+            layer_type = params.get('type')
+            if layer_type is None:
+                raise ValueError(f"Layer {layer_num} is missing 'type'.")
 
-        if weight is None or bias is None:
-            raise ValueError(f"Layer {layer_num} is missing 'weight' or 'bias'.")
+            if isinstance(layer_type, np.ndarray):
+                layer_type = layer_type.item()
+            else:
+                layer_type = str(layer_type)
 
-        if weight.ndim == 2:
-            # Linear layer
-            out_features, in_features = weight.shape
-            linear_layer = nn.Linear(in_features, out_features)
-            linear_layer.weight.data = torch.from_numpy(weight).float()
-            linear_layer.bias.data = torch.from_numpy(bias).float()
-            # Insert Flatten if previous layer was Conv2d
-            if prev_layer_type == 'Conv2d':
-                layers.append(nn.Flatten())
+            if layer_type == 'fc':
+                weight = params.get('weight')
+                bias = params.get('bias').squeeze()
 
-            layers.append(linear_layer)
-            prev_layer_type = 'Linear'
-        elif weight.ndim == 4:
-            # Convolutional layer
-            out_channels, in_channels, kernel_height, kernel_width = weight.shape
-            conv_layer = nn.Conv2d(in_channels, out_channels, kernel_size=(kernel_height, kernel_width), stride=stride, padding=padding)
-            conv_layer.weight.data = torch.from_numpy(weight).float()
-            conv_layer.bias.data = torch.from_numpy(bias).float()
-            layers.append(conv_layer)
-            prev_layer_type = 'Conv2d'
-        else:
-            raise ValueError(f"Unsupported weight dimensions: {weight.shape}")
+                if weight is None or bias is None:
+                    raise ValueError(f"Layer {layer_num} is missing 'weight' or 'bias'.")
 
-        # Add activation function after each layer except the last
-        if idx < num_layers - 1:
-            layers.append(nn.ReLU())
+                out_features, in_features = weight.shape
+                linear_layer = nn.Linear(in_features, out_features)
+                linear_layer.weight.data = torch.from_numpy(weight).float()
+                linear_layer.bias.data = torch.from_numpy(bias).float()
+                # Insert Flatten if previous layer was Conv2d or Pooling
+                if prev_layer_type in ['Conv2d', 'MaxPool2d', 'AvgPool2d']:
+                    layers.append(nn.Flatten())
+
+                layers.append(linear_layer)
+                prev_layer_type = 'Linear'
+
+                # Add activation function after each layer except the last
+                if idx < num_layers - 1:
+                    layers.append(nn.ReLU())
+
+            elif layer_type == 'conv':
+                weight = params.get('weight')
+                bias = params.get('bias').squeeze()
+                stride = int(params.get('stride', 1))
+                padding = int(params.get('padding', 0))
+
+                if weight is None or bias is None:
+                    raise ValueError(f"Layer {layer_num} is missing 'weight' or 'bias'.")
+
+                out_channels, in_channels, kernel_height, kernel_width = weight.shape
+                conv_layer = nn.Conv2d(in_channels, out_channels, kernel_size=(kernel_height, kernel_width), stride=stride, padding=padding)
+                conv_layer.weight.data = torch.from_numpy(weight).float()
+                conv_layer.bias.data = torch.from_numpy(bias).float()
+                layers.append(conv_layer)
+                prev_layer_type = 'Conv2d'
+
+                # Add activation function after each layer except the last
+                if idx < num_layers - 1:
+                    layers.append(nn.ReLU())
+
+            elif layer_type == 'pool':
+                pool_type = params.get('pool_type')
+                kernel_size = params.get('kernel_size')
+                stride = params.get('stride')
+                padding = int(params.get('padding', 0))
+
+                if pool_type is None or kernel_size is None:
+                    raise ValueError(f"Layer {layer_num} is missing 'pool_type' or 'kernel_size'.")
+
+                if isinstance(pool_type, np.ndarray):
+                    pool_type = pool_type.item()
+                else:
+                    pool_type = str(pool_type)
+
+                kernel_size = tuple(kernel_size.flatten())
+                stride = tuple(stride.flatten()) if stride is not None else kernel_size
+
+                if pool_type == 'max':
+                    pool_layer = nn.MaxPool2d(kernel_size=kernel_size, stride=stride, padding=padding)
+                elif pool_type == 'avg':
+                    pool_layer = nn.AvgPool2d(kernel_size=kernel_size, stride=stride, padding=padding)
+                else:
+                    raise ValueError(f"Unsupported pool type: {pool_type}")
+                layers.append(pool_layer)
+                prev_layer_type = 'MaxPool2d' if pool_type == 'max' else 'AvgPool2d'
+
+                # No activation function after pooling layers unless specified
+
+            else:
+                raise ValueError(f"Unsupported layer type: {layer_type}")
+
 
     # Create the sequential model
     model = nn.Sequential(*layers)

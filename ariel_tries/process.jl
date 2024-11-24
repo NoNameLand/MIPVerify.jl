@@ -2,11 +2,10 @@ using MIPVerify
 using Gurobi
 using HiGHS
 using Images
-using MAT
+using MAT  # For saving data as .mat files
 using JuMP
 using Printf
 using Dates
-using BSON  # For saving and loading data
 
 # Utils Functions
 function print_summary(d::Dict)
@@ -73,23 +72,22 @@ current_datetime = Dates.now()
 folder_name = Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS")
 mkpath(folder_name)  # Creates the directory
 
-# Step 2: Save the model
-model_file = joinpath(folder_name, "model.bson")
-BSON.@save model_file model
+# Step 2: Save the results as a .mat file
+results_file = joinpath(folder_name, "results.mat")
+matwrite(results_file, Dict(
+    "diff" => Array(diff),  # Save the perturbation as a numeric array
+    "perturbed_input" => Array(perturbed_input),  # Save the perturbed input
+    "objective_value" => JuMP.objective_value(d[:Model]),  # Save the objective value
+    "solve_time" => JuMP.solve_time(d[:Model]),  # Save the solve time
+    "path_to_network" => path_to_network  # Save the path to the model
+))
 
-# Step 3: Save the perturbation and perturbed input
-results_file = joinpath(folder_name, "results.bson")
-BSON.@save results_file diff perturbed_input
+# Save a summary of the `d` dictionary
+d_summary_file = joinpath(folder_name, "d_summary.txt")
+open(d_summary_file, "w") do file
+    write(file, "Summary of `d` dictionary:\n$(d)\n")
+end
 
-# Step 4: Optionally, save additional data like objective value and solve time
-obj_val = JuMP.objective_value(d[:Model])
-solve_time = JuMP.solve_time(d[:Model])
-data_file = joinpath(folder_name, "data.bson")
-BSON.@save data_file obj_val solve_time
-
-# Save d
-d_file = joinpath(folder_name, "d.bson")
-BSON.@save d_file d
 # --- New Code Ends Here ---
 
 # Visualize the perturbation

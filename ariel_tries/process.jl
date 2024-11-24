@@ -2,7 +2,7 @@ using MIPVerify
 using Gurobi
 using HiGHS
 using Images
-using MAT  # For saving data as .mat files
+using HDF5  # For saving data in HDF5 format
 using JuMP
 using Printf
 using Dates
@@ -72,17 +72,22 @@ current_datetime = Dates.now()
 folder_name = Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS")
 mkpath(folder_name)  # Creates the directory
 
-# Step 2: Save the results as a .mat file
-results_file = joinpath(folder_name, "results.mat")
-matwrite(results_file, Dict(
-    "diff" => Array(diff),  # Save the perturbation as a numeric array
-    "perturbed_input" => Array(perturbed_input),  # Save the perturbed input
-    "objective_value" => JuMP.objective_value(d[:Model]),  # Save the objective value
-    "solve_time" => JuMP.solve_time(d[:Model]),  # Save the solve time
-    "path_to_network" => path_to_network  # Save the path to the model
-))
+# Step 2: Save the results as an HDF5 file
+results_file = joinpath(folder_name, "results.h5")
+h5open(results_file, "w") do file
+    # Save perturbation and perturbed input
+    write(file, "diff", diff)  # Save the perturbation
+    write(file, "perturbed_input", perturbed_input)  # Save the perturbed input
 
-# Save a summary of the `d` dictionary
+    # Save additional data like objective value and solve time
+    write(file, "objective_value", JuMP.objective_value(d[:Model]))
+    write(file, "solve_time", JuMP.solve_time(d[:Model]))
+
+    # Save the path to the network for traceability
+    write(file, "path_to_network", path_to_network)
+end
+
+# Save a summary of the `d` dictionary in a text file
 d_summary_file = joinpath(folder_name, "d_summary.txt")
 open(d_summary_file, "w") do file
     write(file, "Summary of `d` dictionary:\n$(d)\n")

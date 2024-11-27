@@ -1,0 +1,7 @@
+{
+    "path_to_nn_mat": "ariel_tries/networks/mnist_model.mat",
+    "path_to_nn_pth": "ariel_tries/networks/mnist_model.pth",
+    "path_to_nn_adjust": "ariel_tries/networks/mnist_model_adjusted.mat",
+    "dataset_path": "deps/datasets/mnist/mnist_data.mat",
+    "layers_def": "ariel_tries/networks/mnist_layers_definitions.mat"
+}

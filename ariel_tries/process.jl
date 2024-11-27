@@ -55,48 +55,52 @@ d = MIPVerify.find_adversarial_example(
     8,
     Gurobi.Optimizer,
     Dict("output_flag" => false),
-    pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.105),
+    pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.06),
     norm_order = Inf,
     tightening_algorithm = lp,
 )
-print_summary(d)
+println("Solve Status is: ", d[:SolveStatus])
+#print_summary(d)
+if d[:SolveStatus] != "INFEASIBLE_OR_UNBOUNDED"
+    # Get the perturbation and perturbed input
+    diff = value.(d[:Perturbation])
+    perturbed_input = value.(d[:PerturbedInput])
 
-# Get the perturbation and perturbed input
-diff = value.(d[:Perturbation])
-perturbed_input = value.(d[:PerturbedInput])
+    # --- New Code Starts Here ---
 
-# --- New Code Starts Here ---
+    # Step 1: Create a folder named by the current date and time
+    current_datetime = Dates.now()
+    folder_name = Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS")
+    mkpath(folder_name)  # Creates the directory
 
-# Step 1: Create a folder named by the current date and time
-current_datetime = Dates.now()
-folder_name = Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS")
-mkpath(folder_name)  # Creates the directory
+    # Step 2: Save the results as an HDF5 file
+    results_file = joinpath(folder_name, "results.h5")
+    h5open(results_file, "w") do file
+        # Save perturbation and perturbed input
+        write(file, "diff", diff)  # Save the perturbation
+        write(file, "perturbed_input", perturbed_input)  # Save the perturbed input
 
-# Step 2: Save the results as an HDF5 file
-results_file = joinpath(folder_name, "results.h5")
-h5open(results_file, "w") do file
-    # Save perturbation and perturbed input
-    write(file, "diff", diff)  # Save the perturbation
-    write(file, "perturbed_input", perturbed_input)  # Save the perturbed input
+        # Save additional data like objective value and solve time
+        write(file, "objective_value", JuMP.objective_value(d[:Model]))
+        write(file, "solve_time", JuMP.solve_time(d[:Model]))
 
-    # Save additional data like objective value and solve time
-    write(file, "objective_value", JuMP.objective_value(d[:Model]))
-    write(file, "solve_time", JuMP.solve_time(d[:Model]))
+        # Save the path to the network for traceability
+        write(file, "path_to_network", path_to_network)
+    end
 
-    # Save the path to the network for traceability
-    write(file, "path_to_network", path_to_network)
+    # Save a summary of the `d` dictionary in a text file
+    d_summary_file = joinpath(folder_name, "d_summary.txt")
+    open(d_summary_file, "w") do file
+        write(file, "Summary of `d` dictionary:\n$(d)\n")
+    end
+
+    # --- New Code Ends Here ---
+
+    # Visualize the perturbation
+    view_diff(diff[1, :, :, 1])
+
+    # Visualize the perturbed input
+    colorview(Gray, perturbed_input[1, :, :, 1])
+else
+    println("The NN is locally robust in that neighborhood")
 end
-
-# Save a summary of the `d` dictionary in a text file
-d_summary_file = joinpath(folder_name, "d_summary.txt")
-open(d_summary_file, "w") do file
-    write(file, "Summary of `d` dictionary:\n$(d)\n")
-end
-
-# --- New Code Ends Here ---
-
-# Visualize the perturbation
-view_diff(diff[1, :, :, 1])
-
-# Visualize the perturbed input
-colorview(Gray, perturbed_input[1, :, :, 1])

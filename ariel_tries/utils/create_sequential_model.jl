@@ -106,7 +106,7 @@ function create_sequential_model(mat_file::String, model_name::String)
         # Add activation functions after each layer except the last
         if i < length(layers)
             push!(modified_layers, ReLU())
-            if !isa(layers[i+1], Linear) && !isa(layers[i], Linear)
+            if isa(layers[i+1], Linear) && !isa(layers[i], Linear)
                 push!(modified_layers, Flatten(4)) #TOD: Test if 4 is always true
             end
         end
@@ -116,5 +116,3 @@ function create_sequential_model(mat_file::String, model_name::String)
 
     return model
 end
-
-

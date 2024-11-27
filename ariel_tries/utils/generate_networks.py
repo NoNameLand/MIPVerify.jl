@@ -3,7 +3,7 @@ from nn_utils import train_model, save_model_layers, adjust_model_weights
 nn_path = "ariel_tries/networks.mat"
 dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dataset
 
-layer_definitions = [
+"""layer_definitions = [
     {
         'type': 'conv',
         'in_channels': 1,         # MNIST images have 1 channel (grayscale)
@@ -18,6 +18,7 @@ layer_definitions = [
         'out_features': 10           # 10 classes for MNIST digits
     }
 ] # Last layer
+"""
 
 """layer_definitions = [
     # First Convolutional Layer
@@ -51,7 +52,7 @@ layer_definitions = [
         'out_features': 10          # 10 classes for MNIST digits
     }
 ]"""
-"""layer_definitions = [
+layer_definitions = [
     # First Convolutional Layer
     {
         'type': 'conv',
@@ -82,23 +83,27 @@ layer_definitions = [
         'in_features': 64,
         'out_features': 10          # 10 classes for MNIST digits
     }
-]"""
+]
 
 
+save_path = 'ariel_tries/networks/mnist_model.mat'
+import json
+with open("ariel_tries/utils/params.json", "r") as f:
+    params = json.load(f)
 
 # Save the model to a .mat file
-save_model_layers(layer_definitions, 'ariel_tries/networks/small_mnist_model.mat')
+save_model_layers(layer_definitions, params["layers_def"])
 
 # Train the model
 train_model(
-    network_path='ariel_tries/networks/small_mnist_model.mat',
-    dataset_path='deps/datasets/mnist/mnist_data.mat',  # Ensure this file contains your MNIST data
-    output_pth_path='ariel_tries/networks/trained_small_mnist_model.pth',
-    output_mat_path='ariel_tries/networks/trained_small_mnist_model.mat',
-    epochs=5,
+    network_path=params["layers_def"],
+    dataset_path=params["dataset_path"],  # Ensure this file contains your MNIST data
+    output_pth_path=params["path_to_nn_pth"],
+    output_mat_path=params["path_to_nn_mat"],
+    epochs=10,
     batch_size=64,
     learning_rate=0.001
 )
 
 # Adjust the model weights for MIPVerify.jl
-adjust_model_weights('ariel_tries/networks/trained_small_mnist_model.mat', 'ariel_tries/networks/adjusted_small_mnist_model.mat')
+adjust_model_weights(save_path, params["path_to_nn_adjust"])

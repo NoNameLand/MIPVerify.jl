@@ -114,8 +114,8 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     # Build a dictionary of layer parameters
     layer_params = {}
     for key in keys:
-        if 'weight' in key or 'bias' in key or 'stride' in key or 'padding' in key:
-            match = re.match(r'layer_(\d+)/(weight|bias|stride|padding)', key)
+        if 'weight' in key or 'bias' in key or 'stride' in key or 'padding'  or 'type' in key:
+            match = re.match(r'layer_(\d+)/(weight|bias|stride|padding|type)', key)
             if match:
                 layer_num = int(match.group(1))
                 param_type = match.group(2)

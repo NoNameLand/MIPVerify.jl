@@ -6,6 +6,8 @@ import scipy.io as sio
 import numpy as np
 import os
 import re
+from sklearn.model_selection import KFold
+import logging
 
 def save_model_layers(layer_definitions, save_path):
     """
@@ -99,43 +101,69 @@ def save_model_layers(layer_definitions, save_path):
     print(f"Model saved to {save_path}")
 
 
-def train_model(network_path, dataset_path, output_pth_path, output_mat_path, epochs=10, batch_size=32, learning_rate=0.001):
-    print("Starting process...")
+import os
+import re
+import numpy as np
+import scipy.io as sio
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.model_selection import KFold
+import logging
+
+def train_model(network_path, dataset_path, output_pth_path, output_mat_path, epochs=10, batch_size=32, learning_rate=0.001, num_folds=5, log_file_path='process_log.txt', 
+                weight_decay=1e-4):
+    # Set up logging
+    logging.basicConfig(
+        filename=log_file_path,
+        filemode='w',
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(message)s')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
+
+    logging.info("Starting process...")
 
     # Step 1: Load the model from the .mat file
-    print("Loading the model...")
+    logging.info("Loading the model...")
     if not os.path.exists(network_path):
         raise FileNotFoundError(f"Network file not found at {network_path}")
     model_data = sio.loadmat(network_path)
 
-    # Extract keys excluding MATLAB metadata keys
-    keys = [key for key in model_data.keys() if not key.startswith('__')]
+    def build_model_from_mat(model_data):
+        # Extract keys excluding MATLAB metadata keys
+        keys = [key for key in model_data.keys() if not key.startswith('__')]
 
-    # Build a dictionary of layer parameters
-    layer_params = {}
-    for key in keys:
-        if 'weight' in key or 'bias' in key or 'stride' in key or 'padding'  or 'type' in key:
-            match = re.match(r'layer_(\d+)/(weight|bias|stride|padding|type)', key)
-            if match:
-                layer_num = int(match.group(1))
-                param_type = match.group(2)
-                if layer_num not in layer_params:
-                    layer_params[layer_num] = {}
-                layer_params[layer_num][param_type] = model_data[key]
-            else:
-                print(f"Warning: Key '{key}' does not match expected pattern and will be ignored.")
+        # Build a dictionary of layer parameters
+        layer_params = {}
+        for key in keys:
+            if any(param in key for param in ['weight', 'bias', 'stride', 'padding', 'type', 'pool_type', 'kernel_size']):
+                match = re.match(r'layer_(\d+)/(weight|bias|stride|padding|type|pool_type|kernel_size)', key)
+                if match:
+                    layer_num = int(match.group(1))
+                    param_type = match.group(2)
+                    if layer_num not in layer_params:
+                        layer_params[layer_num] = {}
+                    layer_params[layer_num][param_type] = model_data[key]
+                else:
+                    logging.warning(f"Key '{key}' does not match expected pattern and will be ignored.")
 
-    if not layer_params:
-        raise ValueError("No valid layer parameters found in the network file.")
+        if not layer_params:
+            raise ValueError("No valid layer parameters found in the network file.")
 
-    # Sort layers by their layer number
-    sorted_layers = sorted(layer_params.items())
+        # Sort layers by their layer number
+        sorted_layers = sorted(layer_params.items())
 
-    # Build the model using the extracted parameters
-    layers = []
-    num_layers = len(sorted_layers)
-    prev_layer_type = None  # Keep track of the previous layer type
-    for idx, (layer_num, params) in enumerate(sorted_layers):
+        # Build the model using the extracted parameters
+        layers = []
+        num_layers = len(sorted_layers)
+        prev_layer_type = None  # Keep track of the previous layer type
+        for idx, (layer_num, params) in enumerate(sorted_layers):
             # Get layer type
             layer_type = params.get('type')
             if layer_type is None:
@@ -214,20 +242,15 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
                 layers.append(pool_layer)
                 prev_layer_type = 'MaxPool2d' if pool_type == 'max' else 'AvgPool2d'
 
-                # No activation function after pooling layers unless specified
-
             else:
                 raise ValueError(f"Unsupported layer type: {layer_type}")
 
-
-    # Create the sequential model
-    model = nn.Sequential(*layers)
-    print("\nModel Architechture:")
-    print(model)
-    print("Model loaded successfully.")
+        # Create the sequential model
+        model = nn.Sequential(*layers)
+        return model
 
     # Step 2: Load the dataset from the .mat file
-    print("Loading the dataset...")
+    logging.info("Loading the dataset...")
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Dataset file not found at {dataset_path}")
     dataset = sio.loadmat(dataset_path)
@@ -239,10 +262,13 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     train_set = dataset["train_set"]
     train_labels = dataset["train_labels"]
 
+    # Build model
+    model = build_model_from_mat(model_data)
+    
     # Reshape and convert data based on the first layer
-    if isinstance(layers[0], nn.Conv2d):
+    if isinstance(model[0],nn.Conv2d):
         # Assuming images are stored as (num_samples, height, width) or (num_samples, channels, height, width)
-        train_set = train_set.reshape(train_set.shape[0], 28, 28) # assuming 1 channel # TODO: Add support for multiple channels
+        train_set = train_set.reshape(train_set.shape[0], 28, 28)  # Adjust based on actual image size
         if train_set.ndim == 3:
             # Add channel dimension
             train_set = np.expand_dims(train_set, axis=1)
@@ -252,10 +278,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
         else:
             raise ValueError("Unsupported train_set shape for convolutional layers.")
     else:
-        pass
-        # Flatten input for fully connected layers
-        #train_set = train_set.reshape(train_set.shape[0], -1)
-        # Already Flattened
+        pass  # For fully connected layers, assume data is already flattened
 
     train_set = torch.from_numpy(train_set).float()
 
@@ -266,45 +289,83 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     elif train_labels.ndim > 1 and train_labels.shape[0] == 1:
         train_labels = train_labels.squeeze()
     train_labels = torch.from_numpy(train_labels).long()
-    print("Dataset loaded successfully.")
+    logging.info("Dataset loaded successfully.")
 
-    # Step 3: Prepare DataLoader
-    train_dataset = TensorDataset(train_set, train_labels)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    # Step 3: Set up K-Fold Cross Validation
+    logging.info(f"Performing {num_folds}-Fold Cross-Validation...")
+    kfold = KFold(n_splits=num_folds, shuffle=True)
+    fold_results = []
+    best_accuracy = 0
+    best_model = None
+    best_model_state = None
 
-    # Step 4: Define loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(train_set)):
+        logging.info(f"\nFold {fold + 1}/{num_folds}")
+        # Split data
+        train_inputs, val_inputs = train_set[train_idx], train_set[val_idx]
+        train_targets, val_targets = train_labels[train_idx], train_labels[val_idx]
 
-    # Step 5: Train the model
-    print("Training the model...")
-    model.train()
-    for epoch in range(epochs):
-        epoch_loss = 0.0
-        for batch_idx, (inputs, labels) in enumerate(train_loader):
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.item()
+        # Prepare DataLoader
+        train_dataset = TensorDataset(train_inputs, train_targets)
+        val_dataset = TensorDataset(val_inputs, val_targets)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-        avg_loss = epoch_loss / len(train_loader)
-        print(f"Epoch [{epoch + 1}/{epochs}], Loss: {avg_loss:.4f}")
-    print("Training completed.")
+        # Step 4: Define loss function and optimizer
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    # Step 6: Save the trained model as a .pth file
-    print("Saving the trained model as .pth file...")
-    torch.save(model.state_dict(), output_pth_path)
-    print(f"Model saved to {output_pth_path}")
+        # Step 5: Train the model
+        model.train()
+        for epoch in range(epochs):
+            epoch_loss = 0.0
+            for batch_idx, (inputs, labels) in enumerate(train_loader):
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                epoch_loss += loss.item()
 
-    # Step 7: Save the trained model as a .mat file
-    print("Saving the trained model as .mat file...")
+            avg_loss = epoch_loss / len(train_loader)
+            logging.info(f"Epoch [{epoch + 1}/{epochs}], Loss: {avg_loss:.4f}")
+
+        # Step 6: Validate the model
+        model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for inputs, labels in val_loader:
+                outputs = model(inputs)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+        val_accuracy = 100 * correct / total
+        logging.info(f'Validation Accuracy for fold {fold + 1}: {val_accuracy:.2f}%')
+        fold_results.append(val_accuracy)
+        if val_accuracy > best_accuracy:
+            best_accuracy = val_accuracy
+            best_model_state = model.state_dict()
+            best_model = model
+            logging.info(f"This fold ({fold + 1})is the best yet, with accuracy of {val_accuracy:.2f}%")
+
+    # Step 7: Report Cross-Validation Results
+    avg_accuracy = sum(fold_results) / len(fold_results)
+    logging.info(f'\nAverage Cross-Validation Accuracy: {avg_accuracy:.2f}%')
+
+    # Step 11: Save the trained model as a .pth file
+    logging.info("Saving the best trained model as .pth file...")
+    torch.save(best_model_state, output_pth_path)
+    logging.info(f"Model saved to {output_pth_path}")
+    
+    # Step 12: Save the trained model as a .mat file
+    logging.info("Saving the trained model as .mat file...")
     # Prepare the data in the same format as the input .mat file
     trained_params = {}
     layer_counter = 0  # Counter to track the layers
-    for idx in range(len(model)):
-        layer = model[idx]
+    for idx in range(len(best_model)):
+        layer = best_model[idx]
         if isinstance(layer, nn.Linear):
             weight_key = f'layer_{layer_counter + 1}/weight'
             bias_key = f'layer_{layer_counter + 1}/bias'
@@ -324,24 +385,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
 
     # Save the parameters to a .mat file
     sio.savemat(output_mat_path, trained_params)
-    print(f"Model saved to {output_mat_path}")
-    
-def combine_mat_files(mat_file1, mat_file2, output_file):
-    # Load the data from the two .mat files
-    data1 = sio.loadmat(mat_file1)
-    data2 = sio.loadmat(mat_file2)
-
-    # Remove MATLAB metadata entries
-    data1 = {key: value for key, value in data1.items() if not key.startswith('__')}
-    data2 = {key: value for key, value in data2.items() if not key.startswith('__')}
-
-    # Combine the dictionaries
-    combined_data = {**data1, **data2}
-    # Note: If there are duplicate keys, data from data2 will overwrite data1
-
-    # Save the combined data into a new .mat file
-    sio.savemat(output_file, combined_data)
-    print(f"Combined .mat file saved to {output_file}")
+    logging.info(f"Model saved to {output_mat_path}")
     
     
 def adjust_model_weights(input_model_path, output_model_path):

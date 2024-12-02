@@ -3,5 +3,7 @@
     "path_to_nn_pth": "ariel_tries/networks/mnist_model.pth",
     "path_to_nn_adjust": "ariel_tries/networks/mnist_model_adjusted.mat",
     "dataset_path": "deps/datasets/mnist/mnist_data.mat",
-    "layers_def": "ariel_tries/networks/mnist_layers_definitions.mat"
+    "layers_def": "ariel_tries/networks/mnist_layers_definitions.mat",
+    "log_file_path_train": "ariel_tries/networks/log_train.txt",
+    "results_path": "results/adv_attacks/"
 }

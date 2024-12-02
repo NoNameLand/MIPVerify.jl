@@ -6,6 +6,12 @@ using HDF5  # For saving data in HDF5 format
 using JuMP
 using Printf
 using Dates
+using MathOptInterface
+using JSON
+
+
+# loading params
+params = JSON.parsefile("ariel_tries/utils/params.json")
 
 # Utils Functions
 function print_summary(d::Dict)
@@ -31,49 +37,73 @@ mnist = MIPVerify.read_datasets("MNIST")
 
 # Creating Model
 println("The current dir is: ", pwd())
-path_to_network = "ariel_tries/networks/adjusted_small_mnist_model.mat"  # Path to network
+path_to_network = params["path_to_nn_adjust"]#"ariel_tries/networks/mnist_model.mat"  # Path to network
 model = create_sequential_model(path_to_network, "model.n1")
 println(model)
 
-image_num = 1  # The sample number
-# Choosing the input to find adversarial attack against
-sample_image = MIPVerify.get_image(mnist.test.images, image_num)
+global image_num = 4 # The sample number
+global classified_wrong = true
+while classified_wrong
+    # Choosing the input to find adversarial attack against
+    global sample_image = MIPVerify.get_image(mnist.test.images, image_num)
 
-# Get class of network
-model_output = model(sample_image)
-predicted_class = argmax(model_output)
-println("Predicted Class: ", predicted_class)
+    # Get class of network
+    model_output = model(sample_image)
+    global predicted_class = argmax(model_output)
+    global real_class = MIPVerify.get_label(mnist.test.labels, image_num) + 1
+    println("Predicted Class: ", predicted_class)
+    println("The real label: ", real_class)
 
-if MIPVerify.get_label(mnist.test.labels, image_num) != predicted_class
-    println("The model classified the wanted sample wrong!")
+    if real_class != predicted_class
+        println("The model classified the wanted sample wrong!")
+    end
+
+    if real_class != predicted_class
+        global image_num += 1
+    else 
+        global classified_wrong = false
+        println("The model classified the wanted sample correctly!")
+    end
 end
+
+# Finding appropiate label
+function exclude_number(n::Int)
+    # Create an array of numbers from 1 to 10
+    numbers = 1:10
+    # Filter out the given number
+    filtered_numbers = filter(x -> x != n, numbers)
+    # Return the resulting array
+    return collect(filtered_numbers)
+end
+# Time the process
+start_time = time()
 
 # Finding the adversarial example
 d = MIPVerify.find_adversarial_example(
     model,
     sample_image,
-    8,
+    exclude_number(predicted_class),
     Gurobi.Optimizer,
     Dict("output_flag" => false),
-    pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.06),
+    pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.1),
     norm_order = Inf,
     tightening_algorithm = lp,
 )
 println("Solve Status is: ", d[:SolveStatus])
-#print_summary(d)
-if d[:SolveStatus] != "INFEASIBLE_OR_UNBOUNDED"
+
+end_time = time()
+elapsed_time = end_time - start_time
+
+current_datetime = Dates.now()
+folder_name = joinpath(params["results_path"], Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS"))
+mkpath(folder_path)  # Creates the directory
+if d[:SolveStatus] != MOI.INFEASIBLE_OR_UNBOUNDED
+    println("Found an advarasrial example")
     # Get the perturbation and perturbed input
     diff = value.(d[:Perturbation])
     perturbed_input = value.(d[:PerturbedInput])
-
-    # --- New Code Starts Here ---
-
-    # Step 1: Create a folder named by the current date and time
-    current_datetime = Dates.now()
-    folder_name = Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS")
-    mkpath(folder_name)  # Creates the directory
-
-    # Step 2: Save the results as an HDF5 file
+    
+    # Save the results as an HDF5 file
     results_file = joinpath(folder_name, "results.h5")
     h5open(results_file, "w") do file
         # Save perturbation and perturbed input
@@ -94,8 +124,6 @@ if d[:SolveStatus] != "INFEASIBLE_OR_UNBOUNDED"
         write(file, "Summary of `d` dictionary:\n$(d)\n")
     end
 
-    # --- New Code Ends Here ---
-
     # Visualize the perturbation
     view_diff(diff[1, :, :, 1])
 
@@ -103,4 +131,9 @@ if d[:SolveStatus] != "INFEASIBLE_OR_UNBOUNDED"
     colorview(Gray, perturbed_input[1, :, :, 1])
 else
     println("The NN is locally robust in that neighborhood")
+    results_file = joinpath(folder_name, "results.h5")
+    h5open(results_file, "w") do file
+        write(file, "time", elapsed_time)
+        write(file, "path_to_network", path_to_network)
+    end
 end

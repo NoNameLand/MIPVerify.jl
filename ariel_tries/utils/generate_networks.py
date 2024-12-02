@@ -52,6 +52,7 @@ dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dat
         'out_features': 10          # 10 classes for MNIST digits
     }
 ]"""
+"""
 layer_definitions = [
     # First Convolutional Layer
     {
@@ -83,8 +84,95 @@ layer_definitions = [
         'in_features': 64,
         'out_features': 10          # 10 classes for MNIST digits
     }
-]
+]"""
 
+"""
+layer_definitions = [
+    {
+        'type': 'fc',
+        'in_features': 784,
+        'out_features': 512
+    },
+    {
+        'type': 'fc',
+        'in_features': 512,
+        'out_features': 256
+    },
+    {
+        'type': 'fc',
+        'in_features': 256,
+        'out_features': 128
+    },
+    {
+        'type': 'fc',
+        'in_features': 128,
+        'out_features': 64
+    },
+    {
+        'type': 'fc',
+        'in_features': 64,
+        'out_features': 32
+    },
+    {
+        'type': 'fc',
+        'in_features': 32,
+        'out_features': 16
+    },
+    {
+        'type': 'fc',
+        'in_features': 16,
+        'out_features': 10
+    }
+]
+"""
+layer_definitions = [
+    {
+        'type': 'fc',
+        'in_features': 784,
+        'out_features': 512
+    },
+    {
+        'type': 'fc',
+        'in_features': 512,
+        'out_features': 256    
+    },
+    {
+        'type': 'fc',
+        'in_features': 256,
+        'out_features': 256
+    },
+    
+    {
+        'type': 'fc',
+        'in_features': 256,
+        'out_features': 128
+    },
+    {
+        'type': 'fc',
+        'in_features': 128,
+        'out_features': 128    
+    },
+    {
+        'type': 'fc',
+        'in_features': 128,
+        'out_features': 64
+    },
+    {
+        'type': 'fc',
+        'in_features': 64,
+        'out_features': 32
+    },
+    {
+        'type': 'fc',
+        'in_features': 32,
+        'out_features': 16
+    },
+    {
+        'type': 'fc',
+        'in_features': 16,
+        'out_features': 10
+    }
+]
 
 save_path = 'ariel_tries/networks/mnist_model.mat'
 import json
@@ -100,9 +188,11 @@ train_model(
     dataset_path=params["dataset_path"],  # Ensure this file contains your MNIST data
     output_pth_path=params["path_to_nn_pth"],
     output_mat_path=params["path_to_nn_mat"],
+    log_file_path=params["log_file_path_train"],
     epochs=10,
     batch_size=64,
-    learning_rate=0.001
+    learning_rate=0.005 ,
+    weight_decay=1e-3
 )
 
 # Adjust the model weights for MIPVerify.jl

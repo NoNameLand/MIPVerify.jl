@@ -88,7 +88,7 @@ d = MIPVerify.find_adversarial_example(
     tightening_algorithm = lp,
 )
 println("Solve Status is: ", d[:SolveStatus])
-println("Model: ", d[:Model])
+println("Model: ", num_variables(d[:Model]))
 
 
 current_datetime = Dates.now()

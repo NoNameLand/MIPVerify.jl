@@ -17,6 +17,7 @@ params = JSON.parsefile("ariel_tries/utils/params.json")
 include("utils/create_sequential_model.jl")
 include("utils/utils_functions.jl")
 include("Partition.jl")
+include("utils/partition_addons.jl")
 
 # Setting log outputs
 MIPVerify.set_log_level!("debug")
@@ -95,3 +96,15 @@ bounds_matrix = [compute_bounds(expr) for expr in d_1[:Output]]
 push!(p.bounds, bounds_matrix)
 
 # Getting Bounds For the Second half
+d_2 = MIPVerify.find_adversarial_example(
+    p.nns[2],
+    p.bounds[1][:, 1],
+    exclude_number(predicted_class),
+    Gurobi.Optimizer,
+    Dict("output_flag" => false),
+    pp = CostumeBoundedPerturbationFamily(p.bounds[1][:, 1], p.bounds[1][:, 2]),
+    norm_order = norm_order,
+    tightening_algorithm = tightening_algorithm,
+)
+bounds_matrix = [compute_bounds(expr) for expr in d_2[:Output]]
+push!(p.bounds, bounds_matrix)

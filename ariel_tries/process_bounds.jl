@@ -15,6 +15,8 @@ params = JSON.parsefile("ariel_tries/utils/params.json")
 
 # Including functions
 include("utils/create_sequential_model.jl")
+include("utils/utils_functions.jl")
+include("Partition.jl")
 
 # Setting log outputs
 MIPVerify.set_log_level!("debug")
@@ -71,11 +73,25 @@ d_basic = MIPVerify.find_adversarial_example(
     norm_order = norm_order,
     tightening_algorithm = tightening_algorithm,
 )
-println("Solve Status is: ", d[:SolveStatus])
-println("Time to solve is: ", d[:TotalTime], " seconds")
+println("Solve Status is: ", d_basic[:SolveStatus])
+println("Time to solve is: ", d_basic[:TotalTime], " seconds")
 
 # With Partition
 p = Partition(model) # The nn as a Sequential model
 EvenPartition(p, 2) # Splitting in half
 
+# Getting bounds for the first half
+d_1 = MIPVerify.find_adversarial_example(
+    p.nns[1],
+    sample_image,
+    exclude_number(predicted_class),
+    Gurobi.Optimizer,
+    Dict("output_flag" => false),
+    pp = MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+    norm_order = norm_order,
+    tightening_algorithm = tightening_algorithm,
+)
+bounds_matrix = [compute_bounds(expr) for expr in d_1[:Output]]
+push!(p.bounds, bounds_matrix)
 
+# Getting Bounds For the Second half

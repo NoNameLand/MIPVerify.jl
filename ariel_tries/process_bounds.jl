@@ -75,62 +75,24 @@ function exclude_number(n::Int)
     # Return the resulting array
     return collect(filtered_numbers)
 end
+# Define the perturbation family
+pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.1)
 
-# Finding the adversarial example
-d = MIPVerify.find_adversarial_example(
+# Compute neuron bounds
+neuron_bounds = MIPVerify.compute_neuron_bounds(
     model,
     sample_image,
-    exclude_number(predicted_class),
-    Gurobi.Optimizer,
-    Dict("output_flag" => false),
-    pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.05),
-    norm_order = Inf,
-    tightening_algorithm = lp,
+    pp;
+    optimizer = Gurobi.Optimizer,
+    optimizer_options = Dict("OutputFlag" => false),
+    tightening_algorithm = :lp
 )
-println("Solve Status is: ", d[:SolveStatus])
-println("Model: ", d[:Model])
 
-
-current_datetime = Dates.now()
-global folder_name = joinpath(params["results_path"], Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS"))
-mkpath(folder_name)  # Creates the directory
-if d[:SolveStatus] != MOI.INFEASIBLE_OR_UNBOUNDED
-    println("Found an adversarial example")
-    # Get the perturbation and perturbed input
-    diff = value.(d[:Perturbation])
-    perturbed_input = value.(d[:PerturbedInput])
-    
-    # Save the results as an HDF5 file
-    results_file = joinpath(folder_name, "results.h5")
-    h5open(results_file, "w") do file
-        # Save perturbation and perturbed input
-        write(file, "diff", diff)  # Save the perturbation
-        write(file, "perturbed_input", perturbed_input)  # Save the perturbed input
-
-        # Save additional data like objective value and solve time
-        write(file, "objective_value", JuMP.objective_value(d[:Model]))
-        write(file, "solve_time", JuMP.solve_time(d[:Model]))
-
-        # Save the path to the network for traceability
-        write(file, "path_to_network", path_to_network)
-    end
-
-    # Save a summary of the `d` dictionary in a text file
-    d_summary_file = joinpath(folder_name, "d_summary.txt")
-    open(d_summary_file, "w") do file
-        write(file, "Summary of `d` dictionary:\n$(d)\n")
-    end
-
-    # Visualize the perturbation
-    view_diff(diff[1, :, :, 1])
-
-    # Visualize the perturbed input
-    colorview(Gray, perturbed_input[1, :, :, 1])
-else
-    println("The NN is locally robust in that neighborhood")
-    results_file = joinpath(folder_name, "results.h5")
-    h5open(results_file, "w") do file
-        write(file, "time", d[:TotalTime])
-        write(file, "path_to_network", path_to_network)
-    end
+# neuron_bounds now contains the upper and lower bounds for each neuron
+# You can access them as follows:
+for layer_idx in 1:length(neuron_bounds)
+    layer_bounds = neuron_bounds[layer_idx]
+    println("Layer $layer_idx:")
+    println("Lower bounds: ", layer_bounds.lower)
+    println("Upper bounds: ", layer_bounds.upper)
 end

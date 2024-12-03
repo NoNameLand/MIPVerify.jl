@@ -32,6 +32,8 @@ Manifest.toml
 *.bson
 *.h5
 *.txt
+*.pth
+*.pyc
 
 # ignore data
 ariel/data

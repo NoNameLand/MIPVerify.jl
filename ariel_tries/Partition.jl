@@ -2,20 +2,33 @@ mutable struct Partition
     nn_tot::Sequential
     nns::Vector{Sequential}
     bounds::Vector{Tuple{Float64, Float64}}
-    
-    function Partition(nn)
-        new(nn, nothing, nothing)
-    end
+end
 
-    function EvenPartition(p::Partition, num_of_partitions::Int)
-        size_each_partition = floor(length(p.nn_tot)/num_of_partitions) # Number of layers in DNN
-        nns = Sequential[] # Might Not Work
-        for i in 1:(num_of_partitions-1)
-            push!(nns, Sequential(p.nn_tot.layers([i:(i+size_each_partition-1)]))
-        end
-        if size_each_partition*(num_of_partitions) < length(p.nn_tot)
-            push!(nns, Sequential(p.nn_tot.layers([length(p.nn_tot) - size_each_partition:length(p.nn_tot)])))
-        else
-            push!(nns, Sequential(p.nn_not.layers([length(p.nn_tot) - size_each_partition + 1:length(p.nn_tot)])))
+function Partition(nn::Sequential)
+    Partition(nn, Vector{Sequential}(), Vector{Tuple{Float64, Float64}}())
+end
+
+using UUIDs
+
+function Sequential(layers::Array{Layer,1})
+    Sequential(layers, string(uuid4()))
+end
+
+function EvenPartition(p::Partition, num_of_partitions::Int)
+    num_layers = length(p.nn_tot.layers)
+    size_each_partition = div(num_layers, num_of_partitions)
+    nns = Sequential[]
+    for i in 1:(num_of_partitions-1)
+        start_idx = (i-1)*size_each_partition + 1
+        end_idx = i*size_each_partition
+        layers = p.nn_tot.layers[start_idx:end_idx]
+        push!(nns, Sequential(layers))
     end
+    # Handle the last partition
+    start_idx = (num_of_partitions-1)*size_each_partition + 1
+    end_idx = num_layers
+    layers = p.nn_tot.layers[start_idx:end_idx]
+    push!(nns, Sequential(layers))
+    # Update the Partition object
+    p.nns = nns
 end

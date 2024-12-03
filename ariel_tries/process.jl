@@ -8,6 +8,7 @@ using Printf
 using Dates
 using MathOptInterface
 using JSON
+using PrettyTables
 
 
 # loading params
@@ -88,8 +89,53 @@ d = MIPVerify.find_adversarial_example(
     tightening_algorithm = lp,
 )
 println("Solve Status is: ", d[:SolveStatus])
-println("Model: ", num_variables(d[:Model]))
+println("Num Variables: ", num_variables(d[:Model]))
 
+# Getiing last Variables
+last_var = all_variables(d[:Model])[end]
+println("Last Variable: ", last_var)
+println("is Int? ", is_integer(last_var))
+println("Is Binary? ", is_binary(last_var))
+#println("Lower Bound: ", lower_bound(last_var))
+# println("Upper Bound: ", upper_bound(last_var))
+println("Constraints in the model: ", num_constraints(d[:Model]; count_variable_in_set_constraints=true))
+for constraint in all_constraints(d[:Model]; include_variable_in_set_constraints=true)
+    #println(constraint)
+end
+
+## Trying to find last layer
+last_layer = model.layers[end]
+println("Last Layer Vars: ", size(last_layer.matrix))
+println(size(d[:Output]))
+
+function compute_bounds(aff_expr::AffExpr)
+    # Initialize bounds with the constant term
+    lb = aff_expr.constant
+    ub = aff_expr.constant
+
+    # Iterate over the terms
+    for (var, coeff) in aff_expr.terms
+        if coeff > 0
+            lb += coeff * lower_bound(var)  # Positive coefficient → minimum contribution
+            ub += coeff * upper_bound(var)  # Positive coefficient → maximum contribution
+        else
+            lb += coeff * upper_bound(var)  # Negative coefficient → minimum contribution
+            ub += coeff * lower_bound(var)  # Negative coefficient → maximum contribution
+        end
+    end
+
+    return [lb, ub]
+end
+
+# Compute bounds for the vector of affine expressions
+bounds_matrix = [compute_bounds(expr) for expr in d[:Output]]
+# Convert to a matrix with rows [lower_bound, upper_bound] for each expression
+bounds_matrix = hcat(bounds_matrix)'
+bounds_tuple = [(b[1], b[2]) for b in bounds_matrix']
+println(size(bounds_matrix))
+println("Bounds Out: ")
+println(bounds_matrix)
+# pretty_table(bounds_tuple, header=["Lower Bound", "Upper Bound"])
 
 current_datetime = Dates.now()
 global folder_name = joinpath(params["results_path"], Dates.format(current_datetime, "yyyy-mm-dd_HH-MM-SS"))

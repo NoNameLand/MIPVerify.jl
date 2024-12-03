@@ -8,23 +8,10 @@ using Printf
 using Dates
 using MathOptInterface
 using JSON
-
+using PrettyTables
 
 # loading params
 params = JSON.parsefile("ariel_tries/utils/params.json")
-
-# Utils Functions
-function print_summary(d::Dict)
-    # Helper function to print out output
-    obj_val = JuMP.objective_value(d[:Model])
-    solve_time = JuMP.solve_time(d[:Model])
-    println("Objective Value: $(@sprintf("%.6f", obj_val)), Solve Time: $(@sprintf("%.2f", solve_time))")
-end
-
-function view_diff(diff::Array{<:Real, 2})
-    n = 1001
-    colormap("RdBu", n)[ceil.(Int, (diff .+ 1) ./ 2 .* n)]
-end
 
 # Including functions
 include("utils/create_sequential_model.jl")
@@ -41,6 +28,7 @@ path_to_network = params["path_to_nn_adjust"]#"ariel_tries/networks/mnist_model.
 model = create_sequential_model(path_to_network, "model.n1")
 println(model)
 
+# Finding an image to local verify around
 global image_num = 4 # The sample number
 global classified_wrong = true
 while classified_wrong
@@ -66,33 +54,28 @@ while classified_wrong
     end
 end
 
-# Finding appropriate label
-function exclude_number(n::Int)
-    # Create an array of numbers from 1 to 10
-    numbers = 1:10
-    # Filter out the given number
-    filtered_numbers = filter(x -> x != n, numbers)
-    # Return the resulting array
-    return collect(filtered_numbers)
-end
-# Define the perturbation family
-pp = MIPVerify.LInfNormBoundedPerturbationFamily(0.1)
+# Constants 
+eps = 0.05
+norm_order = Inf
+tightening_algorithm = lp
 
-# Compute neuron bounds
-neuron_bounds = MIPVerify.compute_neuron_bounds(
+# Finding the adversarial example
+# Without Partition
+d_basic = MIPVerify.find_adversarial_example(
     model,
     sample_image,
-    pp;
-    optimizer = Gurobi.Optimizer,
-    optimizer_options = Dict("OutputFlag" => false),
-    tightening_algorithm = :lp
+    exclude_number(predicted_class),
+    Gurobi.Optimizer,
+    Dict("output_flag" => false),
+    pp = MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+    norm_order = norm_order,
+    tightening_algorithm = tightening_algorithm,
 )
+println("Solve Status is: ", d[:SolveStatus])
+println("Time to solve is: ", d[:TotalTime], " seconds")
 
-# neuron_bounds now contains the upper and lower bounds for each neuron
-# You can access them as follows:
-for layer_idx in 1:length(neuron_bounds)
-    layer_bounds = neuron_bounds[layer_idx]
-    println("Layer $layer_idx:")
-    println("Lower bounds: ", layer_bounds.lower)
-    println("Upper bounds: ", layer_bounds.upper)
-end
+# With Partition
+p = Partition(model) # The nn as a Sequential model
+EvenPartition(p, 2) # Splitting in half
+
+

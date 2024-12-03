@@ -15,20 +15,27 @@ julia>
 """
 
 module UtilsModule
-using Pkg
-export use_local_MIPVerify
+    export compute_bounds
 
-function use_local_MIPVerify(local_path::String)
+    function compute_bounds(aff_expr::AffExpr)
+        # Initialize bounds with the constant term
+        lb = aff_expr.constant
+        ub = aff_expr.constant
 
-    # Check if the path exists
-    if !isdir(local_path)
-        error("The specified path does not exist: $local_path")
+        # Iterate over the terms
+        for (var, coeff) in aff_expr.terms
+            if coeff > 0
+                lb += coeff * lower_bound(var)  # Positive coefficient → minimum contribution
+                ub += coeff * upper_bound(var)  # Positive coefficient → maximum contribution
+            else
+                lb += coeff * upper_bound(var)  # Negative coefficient → minimum contribution
+                ub += coeff * lower_bound(var)  # Negative coefficient → maximum contribution
+            end
+        end
+
+        return [lb, ub]
     end
 
-    # Use the local version of MIPVerify
-    println("Switching to local version of MIPVerify at $local_path...")
-    Pkg.develop(PackageSpec(path=local_path))
-    println("Successfully switched to the local version.")
-end
+    
 
 end

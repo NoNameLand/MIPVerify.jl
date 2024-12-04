@@ -1,5 +1,6 @@
-include("../../src/models.jl")
-include("../../src/MIPVerify.jl")
+using MIPVerify
+# include("../../src/models.jl")
+# include("../../src/MIPVerify.jl")
 
 struct CostumeBoundedPerturbationFamily <: RestrictedPerturbationFamily
     lb::Vector{Real}

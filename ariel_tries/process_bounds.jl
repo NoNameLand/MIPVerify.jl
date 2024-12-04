@@ -1,4 +1,5 @@
 using MIPVerify
+using MIPVerify: lp, TighteningAlgorithm
 using Gurobi
 using HiGHS
 using Images
@@ -83,7 +84,7 @@ EvenPartition(p, 2) # Splitting in half
 
 # Getting bounds for the first half
 d_1 = MIPVerify.find_adversarial_example(
-    p.nns[1],
+    p.nns[1].layers,
     sample_image,
     exclude_number(predicted_class),
     Gurobi.Optimizer,
@@ -97,7 +98,7 @@ push!(p.bounds, bounds_matrix)
 
 # Getting Bounds For the Second half
 d_2 = MIPVerify.find_adversarial_example(
-    p.nns[2],
+    p.nns[2].layers,
     p.bounds[1][:, 1],
     exclude_number(predicted_class),
     Gurobi.Optimizer,

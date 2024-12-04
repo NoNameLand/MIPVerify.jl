@@ -7,8 +7,8 @@ A file to run when activating the project before starting to edit and running so
 =#
 
 
-include("utils/UtilsModule.jl")
-using .UtilsModule
+#include("utils/UtilsModule.jl")
+#using .UtilsModule
 println("The current dir is: ", pwd())
 using Pkg
 

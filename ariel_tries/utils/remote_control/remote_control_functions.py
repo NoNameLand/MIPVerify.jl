@@ -16,3 +16,6 @@ def run_batch_verification(command, success_string):
 
 
 
+status, runtime = run_batch_verification("julia ../main.jl", "OPTIMAL")
+print(status)
+print(f"Time it took is: {runtime} seconds")

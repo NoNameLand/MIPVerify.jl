@@ -11,7 +11,7 @@ function main()
         "--network_type"
             help = "The type of the network to test"
             arg_type = String
-            required = true
+            default = ":)"
         "--output", "-o"
             help = "Path to the output file"
             arg_type = String

@@ -11,6 +11,8 @@ using JSON
 using PrettyTables
 using Memento
 
+include("../src/logging.jl")
+
 function process_bounds()
     # loading params
     params = JSON.parsefile("ariel_tries/utils/params.json")
@@ -50,7 +52,7 @@ function process_bounds()
         if real_class != predicted_class
             println("The model classified the wanted sample wrong!")
             notice(
-                MIPVerify.logger,
+                MIPVerify.LOGGER,
                 "The model classified the wanted sample wrong!"
             )
         end
@@ -61,7 +63,7 @@ function process_bounds()
             global classified_wrong = false
             println("The model classified the wanted sample correctly!")
             notice(
-                MIPVerify.logger,
+                MIPVerify.LOGGER,
                 "The model classified the wanted sample correctly!"
             )
         end
@@ -86,13 +88,13 @@ function process_bounds()
     )
     println("Solve Status is: ", d_basic[:SolveStatus])
     notice(
-        MIPVerify.logger,
-        "Solve Status is: '$d_basic[:SolveStatus]'"
+        MIPVerify.LOGGER,
+        "Solve Status is: $(d_basic[:SolveStatus])"
     )
     println("Time to solve is: ", d_basic[:TotalTime], " seconds")
     notice(
-        MIPVerify.logger,
-        "Time to solve is: '$d_basic[:TotalTime] seconds'"
+        MIPVerify.LOGGER,
+        "Time to solve is: $(d_basic[:TotalTime]) seconds"
     )
 
     # With Partition
@@ -112,8 +114,8 @@ function process_bounds()
     )
     println("Time it took for first half: ", d_1[:TotalTime])    
     notice(
-        MIPVerify.logger,
-        "Time it took for the first half: '$d_1[:TotalTime]'"
+        MIPVerify.LOGGER,
+        "Time it took for the first half: '$(d_1[:TotalTime])'"
     )
     bounds_matrix = [compute_bounds(expr) for expr in d_1[:Output]]
     push!(p.bounds, bounds_matrix)
@@ -138,12 +140,12 @@ function process_bounds()
 
     println("Solve Status: ", d_2[:SolveStatus])
     notice(
-        MIPVerify.logger,
-        "Solve Status Approx: '$d_2[:SolveStatus]'"
+        MIPVerify.LOGGER,
+        "Solve Status Approx: '$(d_2[:SolveStatus])'"
     )
     println("Time it took for second half: ", d_2[:TotalTime])
     notice(
-        MIPVerify.logger,
-        "Time it took for the second half: '$d_2[:TotalTime]'"
+        MIPVerify.LOGGER,
+        "Time it took for the second half: '$(d_2[:TotalTime])'"
     )
 end

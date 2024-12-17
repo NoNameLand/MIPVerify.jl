@@ -114,6 +114,8 @@ import logging
 
 def train_model(network_path, dataset_path, output_pth_path, output_mat_path, epochs=10, batch_size=32, learning_rate=0.001, num_folds=5, log_file_path='process_log.txt', 
                 weight_decay=1e-4):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     # Set up logging
     logging.basicConfig(
         filename=log_file_path,

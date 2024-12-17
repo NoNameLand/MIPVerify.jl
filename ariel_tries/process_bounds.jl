@@ -1,5 +1,4 @@
 using MIPVerify
-using MIPVerify: lp, TighteningAlgorithm
 using Gurobi
 using HiGHS
 using Images
@@ -81,10 +80,10 @@ println("Time to solve is: ", d_basic[:TotalTime], " seconds")
 # With Partition
 p = Partition(model) # The nn as a Sequential model
 EvenPartition(p, 2) # Splitting in half
-
+println(typeof(p.nns[1]))
 # Getting bounds for the first half
 d_1 = MIPVerify.find_adversarial_example(
-    p.nns[1].layers,
+    p.nns[1],
     sample_image,
     exclude_number(predicted_class),
     Gurobi.Optimizer,
@@ -93,19 +92,27 @@ d_1 = MIPVerify.find_adversarial_example(
     norm_order = norm_order,
     tightening_algorithm = tightening_algorithm,
 )
+println("Time it took for second half: ", d_1[:TotalTime])
 bounds_matrix = [compute_bounds(expr) for expr in d_1[:Output]]
 push!(p.bounds, bounds_matrix)
+lbs = [pair[1] for pair in p.bounds[1]]
+ubs = [pair[2] for pair in p.bounds[1]]
 
+println(typeof(CostumeBoundedPerturbationFamily(lbs, ubs)))
+println(typeof(MIPVerify.LInfNormBoundedPerturbationFamily(eps)))
 # Getting Bounds For the Second half
 d_2 = MIPVerify.find_adversarial_example(
-    p.nns[2].layers,
-    p.bounds[1][:, 1],
+    p.nns[2],
+    lbs,
     exclude_number(predicted_class),
     Gurobi.Optimizer,
     Dict("output_flag" => false),
-    pp = CostumeBoundedPerturbationFamily(p.bounds[1][:, 1], p.bounds[1][:, 2]),
+    pp = CostumeBoundedPerturbationFamily(lbs, ubs),
     norm_order = norm_order,
     tightening_algorithm = tightening_algorithm,
 )
 bounds_matrix = [compute_bounds(expr) for expr in d_2[:Output]]
 push!(p.bounds, bounds_matrix)
+
+println("Solve Status: ", d_2[:SolveStatus])
+println("Time it took for second half: ", d_2[:TotalTime])

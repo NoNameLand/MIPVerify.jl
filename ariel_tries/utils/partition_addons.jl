@@ -1,16 +1,18 @@
 using MIPVerify
 # include("../../src/models.jl")
 # include("../../src/MIPVerify.jl")
-
-struct CostumeBoundedPerturbationFamily <: RestrictedPerturbationFamily
+struct CostumeBoundedPerturbationFamily <: MIPVerify.RestrictedPerturbationFamily
     lb::Vector{Real}
     ub::Vector{Real}
+    
+
 end
 Base.show(io::IO, pp::CostumeBoundedPerturbationFamily) =
+
     print(io, "costume-norm-bounded-($(pp.lb),$(pp.ub)))")
 
 
-function get_perturbation_specific_keys(
+function MIPVerify.get_perturbation_specific_keys(
     nn::NeuralNet,
     input::Array{<:Real},
     pp::CostumeBoundedPerturbationFamily,

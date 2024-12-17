@@ -191,8 +191,9 @@ train_model(
     log_file_path=params["log_file_path_train"],
     epochs=10,
     batch_size=64,
-    learning_rate=0.005 ,
-    weight_decay=1e-3
+    learning_rate=0.004 ,
+    weight_decay=1e-3,
+    num_folds=10
 )
 
 # Adjust the model weights for MIPVerify.jl

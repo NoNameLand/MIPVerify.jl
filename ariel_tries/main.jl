@@ -2,7 +2,7 @@ using ArgParse
 
 # Adding the function of the main
 include("process_bounds.jl")
-
+include("utils/cegis/spurious_functions.jl")
 
 function main()
     # Define the argument parser

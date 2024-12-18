@@ -151,6 +151,7 @@ function process_bounds()
     )
 
     # Testing spurious_functions
+    """
     println(vec(sample_image))
     println(size(vec(sample_image)))
     vec_sample_image = reshape(vec(sample_image), length(vec(sample_image)), 1)
@@ -158,5 +159,7 @@ function process_bounds()
     input_bounds = hcat(vec_sample_image .- eps, vec_sample_image .+ eps)
     println(size(input_bounds))
     solve_status = verify_network(model, input_bounds, output_bounds, (1, 28, 28, 1))
-    println("Spurious Solve Status is $solve_status")
+    println("Spurious Solve Status is solve_status")
+    """
+    
 end

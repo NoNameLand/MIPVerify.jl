@@ -54,12 +54,12 @@ end
 
 function verify_model2(
         nn::NeuralNet,
-        input::Array{<:Real}, # Input to the neural network
+        input::Array{<:Real, 4}, # Input to the neural network
         optimizer,
         main_solve_options::Dict, # Options for the main solve
-        output_desired::Array{<:Real}; # Desired output 
+        output_desired::Vector{<:Real}; # Desired output 
         pp::MIPVerify.PerturbationFamily = MIPVerify.UnrestrictedPerturbationFamily(),
-        tightening_algorithm::MIPVerify.TighteningAlgorithm = DEFAULT_TIGHTENING_ALGORITHM,
+        tightening_algorithm::MIPVerify.TighteningAlgorithm = MIPVerify.DEFAULT_TIGHTENING_ALGORITHM,
         tightening_options::Dict = get_default_tightening_options(optimizer),
     )::Dict
     

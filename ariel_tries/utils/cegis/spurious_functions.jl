@@ -7,29 +7,37 @@ function verify_network(model, input_bounds, output_constraints, input_shape)
     m = Model(Gurobi.Optimizer)
     # set_optimizer_attribute(m, "SolutionLimit", 1)  # Stop after 1 feasible solution
     set_optimizer_attribute(m, "OutputFlag", 0)       # Suppress output
+    set_optimizer_attribute(m, "MIPFocus", 1) # Focus on feasbility
+    # set_optimizer_attribute(m, "Time", 60) # time limit 60s
+    set_time_limit_sec(m, 60)
+
 
     # Flatten input bounds (multi-dimensional input -> vectorized)
     flattened_bounds = vec(input_bounds)  # Convert to a 1D vector
     num_inputs = length(flattened_bounds)
 
     # Define variables for the flattened input
-    @variable(m, input_bounds[i, 1] <= x[i=1:size(input_bounds, 1)] <= input_bounds[i, 2])
-
+    # @variable(m, input_bounds[i, 1] <= x[i=1:size(input_bounds, 1)] <= input_bounds[i, 2])
+    add_bounds!(model, input_bounds)
+    println("Added variables")
     # Reshape variables back to the input's original shape for network evaluation
     reshaped_input = reshape(x, input_shape)  # Reshape to original dimensions
 
     # Propagate the reshaped input through the neural network
     output = model(reshaped_input)
-    println(type(output))
+    println("Calculated Output")
+    # println(type(output))
     println(size(output))
     # Apply the output constraints
     for (i, (lower, upper)) in enumerate(output_constraints)
         println("lower: $lower and upper $upper, i $i")
         @constraint(m, lower <= output[i] <= upper)
     end
+    println("Added Constraints")
     
     # Solve the optimization problem
     optimize!(m)
+    println("Optimized")
 
     # Check the result
     if termination_status(m) == MOI.OPTIMAL

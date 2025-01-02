@@ -151,28 +151,7 @@ function process_bounds()
     )
 
     # Testing spurious_functions
-    # Step 1: Define a sequential model
-    m = Chain(
-        Dense(2, 3, relu; bias=[0.1, -0.2, 0.3]),
-        Dense(3, 2)  # Output layer
-    )
-
-    # Step 2: Define input bounds
-    input_bounds = [-1.0 1.0; -1.0 1.0]  # Bounds for two input variables
-
-    # Step 3: Define output constraints
-    output_constraints = [(0.0, 1.0), (0.5, 2.0)]  # Constraints for two output variables
-
-    # Step 4: Create MIPVerify model
-    optimizer = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 1, "TimeLimit" => 60)
-    verify_model = get_model(model, optimizer)
-
-    # Step 5: Add bounds and constraints
-    add_bounds!(verify_model, input_bounds)
-    add_output_constraints!(verify_model, output_constraints)
-
-    # Step 6: Solve the verification problem
-    result = solve(verify_model)
+    result =  verify_model2(model, sample_image, Gurobi.Optimizer, Dict("output_flag" => false, "MIPFocus" => 1),  d_2[:PerturbedInput],  MIPVerify.LInfNormBoundedPerturbationFamily(eps), tightening_algorithm = tightening_algorithm)
 
     # Step 7: Analyze the result
     if result.solve_status == MOI.OPTIMAL

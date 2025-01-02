@@ -2,6 +2,7 @@ using MIPVerify
 using JuMP
 using Gurobi  # Replace with your solver if needed
 
+
 function verify_network(model, input_bounds, output_constraints, input_shape)
     # Initialize the JuMP model with the specified solver
     m = Model(Gurobi.Optimizer)
@@ -57,7 +58,7 @@ function verify_model2(
         optimizer,
         main_solve_options::Dict, # Options for the main solve
         output_desired::Array{<:Real}; # Desired output 
-        pp::PerturbationFamily = UnrestrictedPerturbationFamily(),
+        pp::MIPVerify.PerturbationFamily = UnrestrictedPerturbationFamily(),
         tightening_algorithm::TighteningAlgorithm = DEFAULT_TIGHTENING_ALGORITHM,
         tightening_options::Dict = get_default_tightening_options(optimizer),
     )::Dict
@@ -101,7 +102,7 @@ function verify_model2(
     function get_model(
         nn::NeuralNet,
         input::Array{<:Real},
-        pp::PerturbationFamily,
+        pp::MIPVerify.PerturbationFamily,
         optimizer,
         tightening_options::Dict,
         tightening_algorithm::TighteningAlgorithm,
@@ -121,3 +122,4 @@ function verify_model2(
     
         return merge(d_common, get_perturbation_specific_keys(nn, input, pp, m))
     end
+end

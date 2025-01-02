@@ -50,3 +50,74 @@ function verify_network(model, input_bounds, output_constraints, input_shape)
     end
     
 end
+
+function verify_model2(
+        nn::NeuralNet,
+        input::Array{<:Real}, # Input to the neural network
+        optimizer,
+        main_solve_options::Dict, # Options for the main solve
+        output_desired::Array{<:Real}; # Desired output 
+        pp::PerturbationFamily = UnrestrictedPerturbationFamily(),
+        tightening_algorithm::TighteningAlgorithm = DEFAULT_TIGHTENING_ALGORITHM,
+        tightening_options::Dict = get_default_tightening_options(optimizer),
+    )::Dict
+    
+        total_time = @elapsed begin
+        d = Dict() # Empty dictionary to store results
+
+        # Calculate predicted index
+        predicted_output = input |> nn
+        notice(
+            MIPVerify.LOGGER,
+            "Attempting to find an input that results in the output specified",
+        )
+        merge!(d, get_model(nn, input, pp, optimizer, tightening_options, tightening_algorithm))
+        m = d[:Model]
+        
+        # Defining output lower and upper constraints
+        desired_output_lower = output_desired .- 1e-3 # Hardcoded tolerance
+        desired_output_upper = output_desired .+ 1e-3 # Hardcoded tolerance
+        
+        # Add constraints for the desired output area
+        @constraint(m, desired_output_lower .<= output .<= desired_output_upper)
+
+        # Change the objective to minimize the deviation from the desired output area
+        @variable(m, deviation[1:length(output)] >= 0)
+        @constraint(m, deviation .>= output .- desired_output_upper)
+        @constraint(m, deviation .>= desired_output_lower .- output)
+        @objective(m, Min, sum(deviation))
+
+        # Optimize the model
+        set_optimizer(m, optimizer)
+        set_optimizer_attributes(m, main_solve_options...)
+        optimize!(m)
+
+        d[:SolveStatus] = JuMP.termination_status(m)
+        d[:SolveTime] = JuMP.solve_time(m)
+        d[:TotalTime] = total_time
+        return d
+    end
+
+    function get_model(
+        nn::NeuralNet,
+        input::Array{<:Real},
+        pp::PerturbationFamily,
+        optimizer,
+        tightening_options::Dict,
+        tightening_algorithm::TighteningAlgorithm,
+    )::Dict{Symbol,Any}
+        notice(
+            MIPVerify.LOGGER,
+            "Determining upper and lower bounds for the input to each non-linear unit.",
+        )
+        m = Model(optimizer_with_attributes(optimizer, tightening_options...))
+        m.ext[:MIPVerify] = MIPVerifyExt(tightening_algorithm)
+    
+        d_common = Dict(
+            :Model => m,
+            :PerturbationFamily => pp,
+            :TighteningApproach => string(tightening_algorithm),
+        )
+    
+        return merge(d_common, get_perturbation_specific_keys(nn, input, pp, m))
+    end

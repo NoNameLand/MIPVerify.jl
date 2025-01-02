@@ -156,7 +156,9 @@ function process_bounds()
     println("Type of pertubed input is $(typeof(value.(d_2[:PerturbedInput])))")
     println("Type of input is : $(typeof(sample_image))")
     result =  verify_model2(model, sample_image, Gurobi.Optimizer,
-     Dict("output_flag" => false, "MIPFocus" => 1),  value.(d_2[:PerturbedInput]),  MIPVerify.LInfNormBoundedPerturbationFamily(eps), tightening_algorithm = tightening_algorithm)
+     Dict("output_flag" => false, "MIPFocus" => 1),  value.(d_2[:PerturbedInput]),  
+     MIPVerify.LInfNormBoundedPerturbationFamily(eps), tightening_algorithm = tightening_algorithm, 
+     tightening_options = get_default_tightening_options(Gurobi.Optimizer))
 
     # Step 7: Analyze the result
     if result.solve_status == MOI.OPTIMAL

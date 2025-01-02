@@ -58,8 +58,8 @@ function verify_model2(
         optimizer,
         main_solve_options::Dict, # Options for the main solve
         output_desired::Array{<:Real}; # Desired output 
-        pp::MIPVerify.PerturbationFamily = UnrestrictedPerturbationFamily(),
-        tightening_algorithm::TighteningAlgorithm = DEFAULT_TIGHTENING_ALGORITHM,
+        pp::MIPVerify.PerturbationFamily = MIPVerify.UnrestrictedPerturbationFamily(),
+        tightening_algorithm::MIPVerify.TighteningAlgorithm = DEFAULT_TIGHTENING_ALGORITHM,
         tightening_options::Dict = get_default_tightening_options(optimizer),
     )::Dict
     

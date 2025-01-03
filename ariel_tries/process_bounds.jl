@@ -37,7 +37,7 @@ function process_bounds()
     println(model)
 
     # Finding an image to local verify around
-    global image_num = 4 # The sample number
+    global image_num = 3 # The sample number
     global classified_wrong = true
     while classified_wrong
         # Choosing the input to find adversarial attack against
@@ -71,7 +71,7 @@ function process_bounds()
     end
 
     # Constants 
-    eps = 0.05
+    eps = 0.06
     norm_order = Inf
     tightening_algorithm = lp
 
@@ -149,34 +149,45 @@ function process_bounds()
         MIPVerify.LOGGER,
         "Time it took for the second half: '$(d_2[:TotalTime])'"
     )
+    
+    notice(
+        MIPVerify.LOGGER,
+        "Time it took for full proof is: $(d_basic[:TotalTime])s"
+    )
+    notice(
+        MIPVerify.LOGGER,
+        "Time it took for approx proof is: $(d_1[:TotalTime] + d_2[:TotalTime])s"
+    )
+    notice(
+        MIPVerify.LOGGER,
+        "Did the approx proof work correctly? $(d_2[:SolveStatus] == d_basic[:SolveStatus])"
+    )
 
     # Testing spurious_functions
     # Trying to Convert
     # convert(Vector{<:Real}, value.(d_2[:PerturbedInput]))
-    println("Type of pertubed input is $(typeof(value.(d_2[:PerturbedInput])))")
-    println("Type of input is : $(typeof(sample_image))")
-    result =  verify_model2(model, sample_image, Gurobi.Optimizer,
-     Dict("output_flag" => false, "MIPFocus" => 1),  value.(d_2[:PerturbedInput]),  
-     MIPVerify.LInfNormBoundedPerturbationFamily(eps), tightening_algorithm = tightening_algorithm, 
-     tightening_options = get_default_tightening_options(Gurobi.Optimizer))
+    if d_2[:SolveStatus] == MOI.OPTIMAL
+        result =  verify_model2(
+            model, 
+            sample_image, 
+            Gurobi.Optimizer,
+            Dict("output_flag" => false, "MIPFocus" => 1), 
+            value.(d_2[:PerturbedInput]),  
+            MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+            tightening_algorithm, 
+            MIPVerify.get_default_tightening_options(Gurobi.Optimizer)
+            )
 
-    # Step 7: Analyze the result
-    if result.solve_status == MOI.OPTIMAL
-        println("Feasible solution found!")
-        println("Perturbed input: ", result.perturbed_input)
-    else
-        println("No feasible solution found.")
+        # Step 7: Analyze the result
+        println("Time to try and find spurious example was: $(result[:TotalTime])")
+        if result[:SolveStatus] == MOI.OPTIMAL
+            println("Feasible solution found!")
+            # println("Perturbed input: ", result[:PerturbedInput])
+            println("The model calssified the pertubed input as: $(argmax(model(value.(result[:PerturbedInput]))))")
+            println("The real classification is: $real_class")
+        else
+            println("No feasible solution found.")
+        end
     end
-    """
-    # println(vec(sample_image))
-    # println(size(vec(sample_image)))
-    vec_sample_image = reshape(vec(sample_image), length(vec(sample_image)), 1)
-    output_bounds = hcat(d_2[:PerturbedInput] .- 1, d_2[:PerturbedInput] .+ 1)
-    input_bounds = hcat(vec_sample_image .- eps, vec_sample_image .+ eps)
-    # println(size(input_bounds))
-    solve_status = verify_network(model, input_bounds, output_bounds, (1, 28, 28, 1))
-    println("Spurious Solve Status is solve_status")
-    """
-
     
 end

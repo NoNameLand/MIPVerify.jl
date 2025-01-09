@@ -100,6 +100,7 @@ function verify_model2(
             d[:SolveStatus] = JuMP.termination_status(m)
             d[:SolveTime] = JuMP.solve_time(m)
         end
+        
         d[:TotalTime] = time_verify
         return d
 end
@@ -137,6 +138,8 @@ function test_linear_constraint(
     index2::Int,
     )::Dict
     
+    index1_full = get_constraints_index(nn, length(nn.layers), index1)
+    index2_full = get_constraints_index(nn, length(nn.layers), index2)
     time_verify = @elapsed 
     begin
         d = Dict() # Empty dictionary to store results
@@ -151,7 +154,7 @@ function test_linear_constraint(
         m = d[:Model]
         
         # Add the negation of the linear constraint index1 <= index2
-        @constraint(m, get_variable_from_index(m, index1) > get_variable_from_index(m, index2))
+        @constraint(m, get_variable_from_index(m, index1_full) > get_variable_from_index(m, index2_full))
 
         # No need to define an objective function, just check for feasibility
 
@@ -167,4 +170,3 @@ function test_linear_constraint(
     d[:TotalTime] = time_verify
     return d
 end
-

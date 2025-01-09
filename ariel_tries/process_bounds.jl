@@ -71,7 +71,7 @@ function process_bounds()
     end
 
     # Constants 
-    eps = 0.06
+    eps = 0.05
     norm_order = Inf
     tightening_algorithm = lp
 
@@ -189,5 +189,18 @@ function process_bounds()
             println("No feasible solution found.")
         end
     end
+
+    # Testing Linear Constraints (why not)
+    d_test_constraints = test_linear_constraint(
+        model, 
+        sample_image, 
+        Gurobi.Optimizer,
+        Dict("output_flag" => false, "MIPFocus" => 1), 
+        MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+        tightening_algorithm, 
+        MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
+        1, # First index
+        2, # second index
+    )
     
 end

@@ -64,8 +64,7 @@ function verify_model2(
         tightening_options::Dict = MIPVerify.get_default_tightening_options(optimizer),
     )::Dict
     
-        time_verify = @elapsed 
-        begin
+        time_verify = @elapsed begin
             d = Dict() # Empty dictionary to store results
 
             # Calculate predicted index
@@ -140,8 +139,7 @@ function test_linear_constraint(
     
     index1_full = get_constraints_index(nn, length(nn.layers), index1)
     index2_full = get_constraints_index(nn, length(nn.layers), index2)
-    time_verify = @elapsed 
-    begin
+    time_verify = @elapsed begin
         d = Dict() # Empty dictionary to store results
 
         # Calculate predicted index

@@ -103,3 +103,68 @@ function verify_model2(
         d[:TotalTime] = time_verify
         return d
 end
+
+
+function get_constraints_index(
+    nn::NeuralNet,
+    layer_num::Int,
+    neuron_num::Int,
+
+)
+    # Calculate the number of neurons in each layer, until the specified layer
+    num_neurons = [size(layer, 1) for layer in nn.layers]
+    # Calculate the index of the specified neuron in the specified layer
+    index = sum(num_neurons[1:layer_num-1]) + neuron_num
+    return index
+end
+
+function get_variable_from_index(
+    model::Model,
+    index::Int,
+)
+    return model[:x][index]
+end
+
+function test_linear_constraint(
+    nn::NeuralNet,
+    input::Array{<:Real, 4},
+    optimizer,
+    main_solve_options::Dict,
+    pp::MIPVerify.PerturbationFamily, 
+    tightening_algorithm::MIPVerify.TighteningAlgorithm = MIPVerify.DEFAULT_TIGHTENING_ALGORITHM,
+    tightening_options::Dict = MIPVerify.get_default_tightening_options(optimizer),
+    index1::Int,
+    index2::Int,
+    )::Dict
+    
+    time_verify = @elapsed 
+    begin
+        d = Dict() # Empty dictionary to store results
+
+        # Calculate predicted index
+        predicted_output = input |> nn
+        notice(
+            MIPVerify.LOGGER,
+            "Attempting to test if a linear constraint holds",
+        )
+        merge!(d, MIPVerify.get_model(nn, input, pp, optimizer, tightening_options, tightening_algorithm))
+        m = d[:Model]
+        
+        # Add the negation of the linear constraint index1 <= index2
+        @constraint(m, get_variable_from_index(m, index1) > get_variable_from_index(m, index2))
+
+        # No need to define an objective function, just check for feasibility
+
+        # Optimize the model
+        set_optimizer(m, optimizer)
+        set_optimizer_attributes(m, main_solve_options...)
+        optimize!(m)
+    
+
+        d[:SolveStatus] = JuMP.termination_status(m)
+        d[:SolveTime] = JuMP.solve_time(m)
+    end
+    d[:TotalTime] = time_verify
+    return d
+end
+

@@ -109,10 +109,9 @@ function get_constraints_index(
     nn::NeuralNet,
     layer_num::Int,
     neuron_num::Int,
-
 )
     # Calculate the number of neurons in each layer, until the specified layer
-    num_neurons = [size(layer, 1) for layer in nn.layers]
+    num_neurons = [size(layer.W, 1) for layer in nn.layers]  # Assuming layer.W contains the weights
     # Calculate the index of the specified neuron in the specified layer
     index = sum(num_neurons[1:layer_num-1]) + neuron_num
     return index

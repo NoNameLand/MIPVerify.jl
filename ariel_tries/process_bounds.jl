@@ -71,7 +71,7 @@ function process_bounds()
     end
 
     # Constants 
-    eps = 0.05
+    eps = 0.01
     norm_order = Inf
     tightening_algorithm = lp
 
@@ -190,6 +190,9 @@ function process_bounds()
         end
     end
 
+    # Show model
+    show(model)
+
     # Testing Linear Constraints (why not)
     d_test_constraints = test_linear_constraint(
         model, 
@@ -197,10 +200,19 @@ function process_bounds()
         Gurobi.Optimizer,
         Dict("output_flag" => false, "MIPFocus" => 1), 
         MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+        1200, # First index
+        1201, # second index
         tightening_algorithm, 
         MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
-        1, # First index
-        2, # second index
+    )
+    if d_test_constraints[:SolveStatus] == MOI.OPTIMAL
+        solution_word = "does not hold"
+    else
+        solution_word = "holds"
+    end
+    notice(
+        MIPVerify.LOGGER,
+        "The constraint n[index1] < n[index2] $solution_word"
     )
     
 end

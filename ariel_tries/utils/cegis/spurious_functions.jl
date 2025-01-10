@@ -111,9 +111,10 @@ function get_constraints_index(
     neuron_num::Int,
 )
     # Calculate the number of neurons in each layer, until the specified layer
-    num_neurons = [size(layer.W, 1) for layer in nn.layers]  # Assuming layer.W contains the weights
+    num_neurons = [size(layer.weights, 1) for layer in nn.layers if typeof(layer) == Linear]  # Assuming layer.W contains the weights
     # Calculate the index of the specified neuron in the specified layer
-    index = sum(num_neurons[1:layer_num-1]) + neuron_num
+    println(num_neurons)
+    index = sum(num_neurons) + neuron_num
     return index
 end
 
@@ -130,15 +131,17 @@ function test_linear_constraint(
     optimizer,
     main_solve_options::Dict,
     pp::MIPVerify.PerturbationFamily, 
-    tightening_algorithm::MIPVerify.TighteningAlgorithm = MIPVerify.DEFAULT_TIGHTENING_ALGORITHM,
-    tightening_options::Dict = MIPVerify.get_default_tightening_options(optimizer),
     index1::Int,
     index2::Int,
+    tightening_algorithm::MIPVerify.TighteningAlgorithm = MIPVerify.DEFAULT_TIGHTENING_ALGORITHM,
+    tightening_options::Dict = MIPVerify.get_default_tightening_options(optimizer),
+
     )::Dict
     
-    index1_full = get_constraints_index(nn, length(nn.layers), index1)
-    index2_full = get_constraints_index(nn, length(nn.layers), index2)
+    
     time_verify = @elapsed begin
+        index1_full = index1# get_constraints_index(nn, length(nn.layers), index1)
+        index2_full = index2 # get_constraints_index(nn, length(nn.layers), index2)
         d = Dict() # Empty dictionary to store results
 
         # Calculate predicted index
@@ -149,9 +152,17 @@ function test_linear_constraint(
         )
         merge!(d, MIPVerify.get_model(nn, input, pp, optimizer, tightening_options, tightening_algorithm))
         m = d[:Model]
-        
+
+        # Print Vars
+        """
+        println(m)
+        for var in all_variables(m)
+            println("Variable: ", var, " Name: ", name(var), " Type: ", typeof(var))
+        end
+        """
+        vars_model = all_variables(m)
         # Add the negation of the linear constraint index1 <= index2
-        @constraint(m, get_variable_from_index(m, index1_full) > get_variable_from_index(m, index2_full))
+        @constraint(m, vars_model[index1_full] >= vars_model[index2_full])
 
         # No need to define an objective function, just check for feasibility
 

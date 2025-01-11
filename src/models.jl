@@ -89,6 +89,7 @@ function get_perturbation_specific_keys(
     @constraint(m, v_x0 .== input |> Conv2d(v_f))
 
     v_output = v_x0 |> nn
+    println("The output v_output is: ", v_output)
 
     return Dict(
         :PerturbedInput => v_x0,
@@ -111,15 +112,26 @@ function get_perturbation_specific_keys(
         _ -> @variable(m, lower_bound = -pp.norm_bound, upper_bound = pp.norm_bound),
         input_range,
     )
+    # Print the name of the variable
+    """for v in v_e
+        println("The name of the variable is: ", JuMP.name(v)," It is a pertubation variable")
+    end"""
+    #println("The name of the variable is: ", JuMP.name(v_e)," It is a pertubation variable")
     # v_x0 is the input with the perturbation added
     v_x0 = map(
         i -> @variable(
             m,
             lower_bound = max(0, input[i] - pp.norm_bound),
-            upper_bound = min(1, input[i] + pp.norm_bound)
+            upper_bound = min(1, input[i] + pp.norm_bound),
+            base_name = "v_x0[$i]", # Adding the name of the variable
         ),
         input_range,
     )
+    # Printing the name of the variable
+    """for v in v_x0
+        println("The name of the variable is: ", JuMP.name(v)," It is an input variable")
+    end"""
+    # println("The name of the variable is: ", name(v_x0)," It is an input variable")
     @constraint(m, v_x0 .== input + v_e)
 
     v_output = v_x0 |> nn

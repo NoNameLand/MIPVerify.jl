@@ -3,6 +3,8 @@ using Flux
 using MAT
 using OrderedCollections
 
+export create_sequential_model # Export the function for use in other files
+
 function extract_number(s::String)
     # Match the first sequence of digits in the string
     match_obj = match(r"\d+", s)

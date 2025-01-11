@@ -154,12 +154,12 @@ function test_linear_constraint(
         m = d[:Model]
 
         # Print Vars
-        """
+        
         println(m)
         for var in all_variables(m)
             println("Variable: ", var, " Name: ", name(var), " Type: ", typeof(var))
         end
-        """
+        
         vars_model = all_variables(m)
         # Add the negation of the linear constraint index1 <= index2
         @constraint(m, vars_model[index1_full] >= vars_model[index2_full])

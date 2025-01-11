@@ -1,23 +1,25 @@
+using MIPVerify
+
 mutable struct Partition
-    nn_tot::Sequential
-    nns::Vector{Sequential}
+    nn_tot::MIPVerify.Sequential
+    nns::Vector{MIPVerify.Sequential}
     bounds::Vector{Vector{Vector{Float64}}}
 end
 
-function Partition(nn::Sequential)
-    Partition(nn, Vector{Sequential}(), Vector{Vector{Vector{Float64}}}())
+function Partition(nn::MIPVerify.Sequential)
+    Partition(nn, Vector{MIPVerify.Sequential}(), Vector{Vector{Vector{Float64}}}())
 end
 
 using UUIDs
 
 function Sequential_Fake(layers::Array{Layer,1})
-    Sequential(layers, string(uuid4()))
+    MIPVerify.Sequential(layers, string(uuid4()))
 end
 
 function EvenPartition(p::Partition, num_of_partitions::Int)
     num_layers = length(p.nn_tot.layers)
     size_each_partition = div(num_layers, num_of_partitions)
-    nns = Sequential[]
+    nns = MIPVerify.Sequential[]
     for i in 1:(num_of_partitions-1)
         start_idx = (i-1)*size_each_partition + 1
         end_idx = i*size_each_partition
@@ -44,7 +46,7 @@ function EvenPartitionFixed(p::Partition, num_of_partitions::Int)
     remainder = mod(num_relevant_layers, num_of_partitions)
 
     # Initialize partitions
-    partitions = Sequential[]
+    partitions = MIPVerify.Sequential[]
 
     # Partition relevant layers
     start_idx = 1
@@ -60,7 +62,7 @@ function EvenPartitionFixed(p::Partition, num_of_partitions::Int)
     end
 
     # Add non-relevant layers to respective partitions
-    final_partitions = Sequential[]
+    final_partitions = MIPVerify.Sequential[]
     current_idx = 1
     for partition in partitions
         partition_layers = []

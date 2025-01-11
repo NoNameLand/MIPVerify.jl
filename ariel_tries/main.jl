@@ -1,4 +1,5 @@
 using ArgParse
+using MIPVerify
 
 # Adding the function of the main
 include("process_bounds.jl")

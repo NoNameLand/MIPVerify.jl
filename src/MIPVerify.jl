@@ -10,7 +10,7 @@ using ProgressMeter
 # TODO: more reliable way to determine location for dependencies
 const dependencies_path = joinpath(@__DIR__, "..", "deps")
 
-export find_adversarial_example, frac_correct, interval_arithmetic, lp, mip
+export find_adversarial_example, frac_correct, interval_arithmetic, lp, mip, Sequential
 
 @enum TighteningAlgorithm interval_arithmetic = 1 lp = 2 mip = 3
 @enum AdversarialExampleObjective closest = 1 worst = 2

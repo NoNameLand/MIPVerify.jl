@@ -1,14 +1,8 @@
 using MIPVerify
 using Gurobi
-using HiGHS
-using Images
-using HDF5  # For saving data in HDF5 format
 using JuMP
-using Printf
-using Dates
 using MathOptInterface
 using JSON
-using PrettyTables
 using Memento
 
 include("../src/logging.jl")
@@ -28,7 +22,7 @@ function process_bounds()
     MIPVerify.set_log_level!("debug")
 
     # Loading MNIST dataset
-    mnist = MIPVerify.read_datasets("MNIST")
+    mnist = MIPVerify.read_datasets("MNIST") # MIPVerify.read_datasets("MNIST")
 
     # Creating Model
     println("The current dir is: ", pwd())
@@ -189,9 +183,6 @@ function process_bounds()
             println("No feasible solution found.")
         end
     end
-
-    # Show model
-    show(model)
 
     # Testing Linear Constraints (why not)
     d_test_constraints = test_linear_constraint(

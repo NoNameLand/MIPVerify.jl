@@ -189,11 +189,11 @@ train_model(
     output_pth_path=params["path_to_nn_pth"],
     output_mat_path=params["path_to_nn_mat"],
     log_file_path=params["log_file_path_train"],
-    epochs=6,
-    batch_size=64,
-    learning_rate=0.003 ,
-    weight_decay=4e-3,
-    num_folds=7
+    epochs=10,# Train for 10 epochs
+    batch_size=64, # Batch size of 64, can be increased if you have more memory. 
+    learning_rate=0.003, # Learning rate of 0.003
+    weight_decay=4e-3, # Weight decay of 4e-3, to prevent overfitting. 
+    num_folds=20 # Use 20 folds for cross-validation
 )
 
 # Adjust the model weights for MIPVerify.jl

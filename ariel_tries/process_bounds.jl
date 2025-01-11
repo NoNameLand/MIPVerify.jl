@@ -13,10 +13,10 @@ function process_bounds()
     params = JSON.parsefile("ariel_tries/utils/params.json")
 
     # Including functions
-    include("utils/create_sequential_model.jl")
-    include("utils/utils_functions.jl")
-    include("Partition.jl")
-    include("utils/partition_addons.jl")
+    include("ariel_tries/utils/create_sequential_model.jl")
+    include("ariel_tries/utils/utils_functions.jl")
+    include("ariel_tries/Partition.jl")
+    include("ariel_tries/utils/partition_addons.jl")
 
     # Setting log outputs
     MIPVerify.set_log_level!("debug")
@@ -27,11 +27,12 @@ function process_bounds()
     # Creating Model
     println("The current dir is: ", pwd())
     path_to_network = params["path_to_nn_adjust"]#"ariel_tries/networks/mnist_model.mat"  # Path to network
+    println("The path to the network is: ", path_to_network)
     model = create_sequential_model(path_to_network, "model.n1")
     println(model)
 
     # Finding an image to local verify around
-    global image_num = 3 # The sample number
+    global image_num = 4 # The sample number
     global classified_wrong = true
     while classified_wrong
         # Choosing the input to find adversarial attack against

@@ -109,7 +109,7 @@ function create_sequential_model(mat_file::String, model_name::String)
         if i < length(layers)
             push!(modified_layers, ReLU())
             if isa(layers[i+1], Linear) && !isa(layers[i], Linear)
-                push!(modified_layers, Flatten(4)) #TOD: Test if 4 is always true
+                push!(modified_layers, Flatten(4)) #TODO: Test if 4 is always true
             end
         end
     end

@@ -31,7 +31,7 @@ function verify_network(model, input_bounds, output_constraints, input_shape)
     println(size(output))
     # Apply the output constraints
     for (i, (lower, upper)) in enumerate(output_constraints)
-        println("lower: $lower and upper $upper, i $i")
+        # println("lower: $lower and upper $upper, i $i")
         @constraint(m, lower <= output[i] <= upper)
     end
     println("Added Constraints")
@@ -151,15 +151,7 @@ function test_linear_constraint(
             "Attempting to test if a linear constraint holds",
         )
         merge!(d, MIPVerify.get_model(nn, input, pp, optimizer, tightening_options, tightening_algorithm))
-        m = d[:Model]
-
-        # Print Vars
-        
-        println(m)
-        for var in all_variables(m)
-            println("Variable: ", var, " Name: ", name(var), " Type: ", typeof(var))
-        end
-        
+        m = d[:Model]        
         vars_model = all_variables(m)
         # Add the negation of the linear constraint index1 <= index2
         @constraint(m, vars_model[index1_full] >= vars_model[index2_full])

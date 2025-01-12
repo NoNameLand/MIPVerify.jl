@@ -1,4 +1,5 @@
 from nn_utils import train_model, save_model_layers, adjust_model_weights
+import json
 
 nn_path = "ariel_tries/networks.mat"
 dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dataset
@@ -175,7 +176,7 @@ layer_definitions = [
 ]
 
 save_path = 'ariel_tries/networks/mnist_model.mat'
-import json
+
 with open("ariel_tries/utils/params.json", "r") as f:
     params = json.load(f)
 

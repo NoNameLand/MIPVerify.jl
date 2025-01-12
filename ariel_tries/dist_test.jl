@@ -6,6 +6,7 @@ using JSON
 using GraphPlot
 using Colors
 
+include("utils/create_sequential_model.jl") # For loading the neural network
 """
     sample_image_random(image::AbstractArray{<:Real, 2}, bounds::Tuple{<:Real, <:Real}, num_samples::Int)
     
@@ -126,16 +127,16 @@ function dist_test(
     neuron_values = [feed_net(net, sampled_images[:, :, :, :,  i]) for i in 1:num_samples]
     
     # Calculate the empirical entropy of the neuron values for each layer
-    num_layers = length(net.layers) - 1  # Exclude the input layer
+    num_layers = length(net.layers)  # Exclude the input layer
     entropies = []
-    for layer_idx in 2:num_layers
+    for layer_idx in 1:num_layers
         entropies_layer = []
-        if typeof(net.layers[layer_idx]) == MIPVerify.Flatten || typeof(net.layers[layer_idx]) == MIPVerify.ReLU
+        if net.layers[layer_idx] isa MIPVerify.Flatten || net.layers[layer_idx] isa MIPVerify.ReLU
             layer_idx += 1
         else
             for neruon_idx in 1:length(net.layers[layer_idx].bias)
                 # println("Layer $layer_idx neuron $neruon_idx")
-                layer_activations = [neuron_values[sample_idx][layer_idx][neruon_idx] for sample_idx in 1:num_samples]
+                layer_activations = [neuron_values[sample_idx][layer_idx-1][neruon_idx] for sample_idx in 1:num_samples]
                 layer_activations_flat = vcat(layer_activations...)
                 push!(entropies_layer, empirical_entropy(layer_activations_flat))
             end
@@ -207,42 +208,37 @@ end
 """
 function plot_nn_entropy(net::MIPVerify.Sequential, entropies::Vector{<:Any})
     num_layers = length(net.layers)
-    g = SimpleGraph()
-    node_labels = []
-    node_colors = []
+    layer_positions = []
+    neuron_positions = []
+    neuron_entropies = []
+    layer_labels = []
 
-    # Add nodes and edges for each layer
-    node_idx = 1
+    real_layer_idx = 1
     for layer_idx in 1:num_layers
-        if typeof(net.layers[layer_idx]) == MIPVerify.Flatten || typeof(net.layers[layer_idx]) == MIPVerify.ReLU
-            continue
+        if net.layers[layer_idx] isa MIPVerify.Flatten || net.layers[layer_idx] isa MIPVerify.ReLU
+            continue # Skip Flatten and ReLU layers
         else
-            for neuron_idx in 1:length(net.layers[layer_idx].bias)
-                add_vertex!(g)
-                push!(node_labels, "L$layer_idx-N$neuron_idx")
-                entropy = entropies[layer_idx][neuron_idx]
-                color = get_color(entropy)
-                push!(node_colors, color)
-                node_idx += 1
+            real_layer_idx += 1
+            for neuron_idx in 1:length(entropies[real_layer_idx - 1])
+                push!(layer_positions, real_layer_idx)
+                push!(neuron_positions, neuron_idx)
+                entropy = entropies[real_layer_idx - 1][neuron_idx]
+                push!(neuron_entropies, entropy)
             end
+            push!(layer_labels, "Layer $real_layer_idx")
         end
     end
 
-    # Add edges between layers
-    for layer_idx in 1:(num_layers - 1)
-        if typeof(net.layers[layer_idx]) == MIPVerify.Flatten || typeof(net.layers[layer_idx]) == MIPVerify.ReLU
-            continue
-        else
-            for neuron_idx in 1:length(net.layers[layer_idx].bias)
-                for next_neuron_idx in 1:length(net.layers[layer_idx + 1].bias)
-                    add_edge!(g, neuron_idx, next_neuron_idx)
-                end
-            end
-        end
-    end
+    scatter(layer_positions, neuron_positions, marker_z=neuron_entropies, c=:viridis, legend=false, xlabel="Layer", ylabel="Neuron", #(neuron_entropies .- minimum(neuron_entropies)/(maximum(neuron_entropies) .- minimum(neuron_entropies)))
+        title="Neural Network Entropy Visualization", size=(800, 600), colorbar=true)    
+    """for i in 1:length(layer_labels)
+        annotate!(i, -1, layer_labels[i])
+    end"""
+    xlabel!("Layer")
+    ylabel!("Neuron")
+    title!("Neural Network Entropy Visualization")
 
-    # Plot the graph
-    gplot(g, node_labels=node_labels, nodefillc=node_colors)
+    savefig("../results/dist_test/nn_entropy_visualization.png")
 end
 
 """
@@ -277,14 +273,14 @@ function main()
 
     # Creating Model
     println("The current dir is: ", pwd())
-    path_to_network = params["path_to_nn_adjust"]#"ariel_tries/networks/mnist_model.mat"  # Path to network
+    path_to_network = params["path_to_nn_adjust"] # "ariel_tries/networks/mnist_model.mat"  # Path to network
     model = create_sequential_model(path_to_network, "model.n1")
     println(model)
 
     image_num = 1
     image =  MIPVerify.get_image(mnist.test.images, image_num)
     #image = reshape(image, 28, 28) # To work with the sample image
-    bounds = (-0.1, 0.1)
+    bounds = (-0.01, 0.01)
     num_samples = 1000
     entropies = dist_test(model, image, bounds, num_samples)
     # println(entropies)

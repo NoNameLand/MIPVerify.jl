@@ -34,6 +34,7 @@ Manifest.toml
 *.txt
 *.pth
 *.pyc
+*.svg
 
 # ignore data
 ariel/data

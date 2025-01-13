@@ -5,18 +5,25 @@ using MathOptInterface
 using JSON
 using Memento
 
+# --- Include Functions --- #
 include("../src/logging.jl")
 include("utils/cegis/spurious_functions.jl")
+include("utils/create_sequential_model.jl")
+include("utils/utils_functions.jl")
+include("Partition.jl")
+include("utils/partition_addons.jl")
 
 function process_bounds()
+    # --- Constans --- # 
+    eps = 0.01
+    norm_order = Inf
+    tightening_algorithm = lp
+
+    # --- Model Setup --- #
     # loading params
     params = JSON.parsefile("ariel_tries/utils/params.json")
 
-    # Including functions
-    include("ariel_tries/utils/create_sequential_model.jl")
-    include("ariel_tries/utils/utils_functions.jl")
-    include("ariel_tries/Partition.jl")
-    include("ariel_tries/utils/partition_addons.jl")
+
 
     # Setting log outputs
     MIPVerify.set_log_level!("debug")
@@ -31,6 +38,7 @@ function process_bounds()
     model = create_sequential_model(path_to_network, "model.n1")
     println(model)
 
+    # --- Finding Image to Attack --- #
     # Finding an image to local verify around
     global image_num = 4 # The sample number
     global classified_wrong = true
@@ -65,13 +73,9 @@ function process_bounds()
         end
     end
 
-    # Constants 
-    eps = 0.01
-    norm_order = Inf
-    tightening_algorithm = lp
 
-    # Finding the adversarial example
-    # Without Partition
+    #  --- Finding the adversarial example --- #
+    # -- Without Partition -- #
     d_basic = MIPVerify.find_adversarial_example(
         model,
         sample_image,
@@ -93,9 +97,11 @@ function process_bounds()
         "Time to solve is: $(d_basic[:TotalTime]) seconds"
     )
 
-    # With Partition
+    # -- With Partition -- #
     p = Partition(model) # The nn as a Sequential model
-    EvenPartition(p, 2) # Splitting in half
+    index_partiotn_real = 6
+    println("The index of the partition is: ", index_partiotn_real, " and the layer is: ", find_layer_index(p, index_partiotn_real))
+    PartitionByLayer(p, [find_layer_index(p, index_partiotn_real)]) # Splitting in half
     println(typeof(p.nns[1]))
     # Getting bounds for the first half
     d_1 = MIPVerify.find_adversarial_example(
@@ -118,8 +124,6 @@ function process_bounds()
     lbs = [pair[1] for pair in p.bounds[1]]
     ubs = [pair[2] for pair in p.bounds[1]]
 
-    println(typeof(CostumeBoundedPerturbationFamily(lbs, ubs)))
-    println(typeof(MIPVerify.LInfNormBoundedPerturbationFamily(eps)))
     # Getting Bounds For the Second half
     d_2 = MIPVerify.find_adversarial_example(
         p.nns[2],
@@ -134,6 +138,7 @@ function process_bounds()
     bounds_matrix = [compute_bounds(expr) for expr in d_2[:Output]]
     push!(p.bounds, bounds_matrix)
 
+    # - Results - #
     println("Solve Status: ", d_2[:SolveStatus])
     notice(
         MIPVerify.LOGGER,
@@ -158,6 +163,8 @@ function process_bounds()
         "Did the approx proof work correctly? $(d_2[:SolveStatus] == d_basic[:SolveStatus])"
     )
 
+
+    # --- Spurious Examples --- #
     # Testing spurious_functions
     # Trying to Convert
     # convert(Vector{<:Real}, value.(d_2[:PerturbedInput]))
@@ -185,26 +192,29 @@ function process_bounds()
         end
     end
 
-    # Testing Linear Constraints (why not)
-    d_test_constraints = test_linear_constraint(
-        model, 
-        sample_image, 
-        Gurobi.Optimizer,
-        Dict("output_flag" => false, "MIPFocus" => 1), 
-        MIPVerify.LInfNormBoundedPerturbationFamily(eps),
-        1200, # First index
-        1201, # second index
-        tightening_algorithm, 
-        MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
-    )
-    if d_test_constraints[:SolveStatus] == MOI.OPTIMAL
-        solution_word = "does not hold"
-    else
-        solution_word = "holds"
-    end
-    notice(
-        MIPVerify.LOGGER,
-        "The constraint n[index1] < n[index2] $solution_word"
-    )
+    #  --- Linear Constraints --- #
+    
+    # # Testing Linear Constraints (why not)
+    # d_test_constraints = test_linear_constraint(
+    #     model, 
+    #     sample_image, 
+    #     Gurobi.Optimizer,
+    #     Dict("output_flag" => false, "MIPFocus" => 1), 
+    #     MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+    #     1200, # First index
+    #     1201, # second index
+    #     tightening_algorithm, 
+    #     MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
+    # )
+    # if d_test_constraints[:SolveStatus] == MOI.OPTIMAL
+    #     solution_word = "does not hold"
+    # else
+    #     solution_word = "holds"
+    # end
+    # notice(
+    #     MIPVerify.LOGGER,
+    #     "The constraint n[index1] < n[index2] $solution_word"
+    # )
+    
     
 end

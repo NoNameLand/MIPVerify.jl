@@ -119,7 +119,33 @@ function EvenPartitionByNeurons(p::Partition, num_of_partitions::Int)
     p.nns = partitions
 end
 
+function PartitionByLayer(p::Partition, layer_indices::Vector{Int})
+    layers = p.nn_tot.layers
+    partitions = MIPVerify.Sequential[]
+    start_idx = 1
+    for i in layer_indices
+        end_idx = i
+        push!(partitions, Sequential_Fake(layers[start_idx:end_idx]))
+        start_idx = i + 1
+    end
+    # Handle the last partition
+    push!(partitions, Sequential_Fake(layers[start_idx:end]))
+    p.nns = partitions
+end
 
+function find_layer_index(p::Partition, layer_index::Int)
+    idx = 1
+    real_idx = 1
+    for i in 1:length(p.nn_tot.layers)
+        idx += 1
+        if !(p.nn_tot.layers[i] isa MIPVerify.Flatten || p.nn_tot.layers[i] isa MIPVerify.ReLU)
+            real_idx += 1
+        end
+        if real_idx == layer_index
+            return idx
+        end
+    end
+end
 function AddBounds()
 
 end

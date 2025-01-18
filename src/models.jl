@@ -112,6 +112,7 @@ function get_perturbation_specific_keys(
         _ -> @variable(m, lower_bound = -pp.norm_bound, upper_bound = pp.norm_bound),
         input_range,
     )
+    println("Number of perturbation variables: ", length(v_e))
     # Print the name of the variable
     """for v in v_e
         println("The name of the variable is: ", JuMP.name(v)," It is a pertubation variable")
@@ -127,6 +128,7 @@ function get_perturbation_specific_keys(
         ),
         input_range,
     )
+    println("Number of input variables: ", length(v_x0))
     # Printing the name of the variable
     """for v in v_x0
         println("The name of the variable is: ", JuMP.name(v)," It is an input variable")

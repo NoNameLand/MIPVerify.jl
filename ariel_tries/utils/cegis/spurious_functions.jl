@@ -153,8 +153,12 @@ function test_linear_constraint(
         merge!(d, MIPVerify.get_model(nn, input, pp, optimizer, tightening_options, tightening_algorithm))
         m = d[:Model]        
         vars_model = all_variables(m)
+        n_vars_actual = length(vars_model)
+        println("Number of variables: $n_vars_actual")
+        n_vars_calc = calc_num_expected_vars(nn, size(input))
+        println("Number of variables calculated: $n_vars_calc")
         # Add the negation of the linear constraint index1 <= index2
-        @constraint(m, vars_model[index1_full] >= vars_model[index2_full])
+        @constraint(m, d[:Output][index1_full] >= d[:Output][index2_full])
 
         # No need to define an objective function, just check for feasibility
 
@@ -169,4 +173,19 @@ function test_linear_constraint(
     end
     d[:TotalTime] = time_verify
     return d
+end
+
+function calc_num_expected_vars(
+    nn::NeuralNet,
+    input_shape::Tuple,
+)
+    # Calculate the number of variables expected in the model
+    num_vars = 0
+    for (i, layer) in enumerate(nn.layers)
+        if layer isa ReLU && nn.layers[i-1] isa Linear
+            num_vars += size(nn.layers[i-1].bias)[1] # Add the number of bias variables, ReLU vars.
+        end
+    end
+    num_vars += 2*(input_shape[1] * input_shape[2] * input_shape[3]) # Input Vars and Perturbation Vars
+    return num_vars
 end

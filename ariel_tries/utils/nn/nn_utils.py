@@ -350,7 +350,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
             best_accuracy = val_accuracy
             best_model_state = model.state_dict()
             best_model = model
-            logging.info(f"This fold ({fold + 1})is the best yet, with accuracy of {val_accuracy:.2f}%")
+            logging.info(f"This fold ({fold + 1}) is the best yet, with accuracy of {val_accuracy:.2f}%")
 
     # Step 7: Report Cross-Validation Results
     avg_accuracy = sum(fold_results) / len(fold_results)
@@ -388,7 +388,6 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     # Save the parameters to a .mat file
     sio.savemat(output_mat_path, trained_params)
     logging.info(f"Model saved to {output_mat_path}")
-    
     
 def adjust_model_weights(input_model_path, output_model_path):
     """

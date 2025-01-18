@@ -12,6 +12,7 @@ include("utils/create_sequential_model.jl")
 include("utils/utils_functions.jl")
 include("Partition.jl")
 include("utils/partition_addons.jl")
+include("utils/visual_functions.jl")
 
 function process_bounds()
     # --- Constans --- # 
@@ -37,10 +38,15 @@ function process_bounds()
     println("The path to the network is: ", path_to_network)
     model = create_sequential_model(path_to_network, "model.n1")
     println(model)
-
+    # Print Test Accuracy
+    # labelled_data_set_test = 
+    println("Size of input image: ", size(MIPVerify.get_image(mnist.test.images, 1)))
+    # Reshape input image to (batch_size, height, width, channels)
+    # mnist.test.images = reshape(mnist.test.images, (size(mnist.test.images, 1), 28, 28, 1))
+    println("The test accuracy is: ", MIPVerify.frac_correct(model, mnist.test, length(mnist.test.labels)))
     # --- Finding Image to Attack --- #
     # Finding an image to local verify around
-    global image_num = 4 # The sample number
+    global image_num = 1 # The sample number
     global classified_wrong = true
     while classified_wrong
         # Choosing the input to find adversarial attack against
@@ -99,7 +105,7 @@ function process_bounds()
 
     # -- With Partition -- #
     p = Partition(model) # The nn as a Sequential model
-    index_partiotn_real = 6
+    index_partiotn_real = 3
     println("The index of the partition is: ", index_partiotn_real, " and the layer is: ", find_layer_index(p, index_partiotn_real))
     PartitionByLayer(p, [find_layer_index(p, index_partiotn_real)]) # Splitting in half
     println(typeof(p.nns[1]))
@@ -193,28 +199,33 @@ function process_bounds()
     end
 
     #  --- Linear Constraints --- #
-    
-    # # Testing Linear Constraints (why not)
-    # d_test_constraints = test_linear_constraint(
-    #     model, 
-    #     sample_image, 
-    #     Gurobi.Optimizer,
-    #     Dict("output_flag" => false, "MIPFocus" => 1), 
-    #     MIPVerify.LInfNormBoundedPerturbationFamily(eps),
-    #     1200, # First index
-    #     1201, # second index
-    #     tightening_algorithm, 
-    #     MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
-    # )
-    # if d_test_constraints[:SolveStatus] == MOI.OPTIMAL
-    #     solution_word = "does not hold"
-    # else
-    #     solution_word = "holds"
-    # end
-    # notice(
-    #     MIPVerify.LOGGER,
-    #     "The constraint n[index1] < n[index2] $solution_word"
-    # )
-    
-    
+    boolean_linear_constrains_mat = falses(3, 3)
+    for i in 1:3
+        for j in 1:3
+            d_test_constraints = test_linear_constraint(
+                model, 
+                sample_image, 
+                Gurobi.Optimizer,
+                Dict("output_flag" => false, "MIPFocus" => 1), 
+                MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+                i, # First index
+                j, # second index
+                tightening_algorithm, 
+                MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
+            )
+            if d_test_constraints[:SolveStatus] == MOI.OPTIMAL
+                solution_word = "does not hold"
+            else
+                solution_word = "holds"
+                boolean_linear_constrains_mat[i, j] = true
+            end
+            notice(
+                MIPVerify.LOGGER,
+                "The constraint n[index1] < n[index2] $solution_word"
+            )
+        end
+
+    end
+    println("The matrix of the linear constraints is: ", boolean_linear_constrains_mat)
+    plot_binary_matrix(boolean_linear_constrains_mat) # Plotting the matrix
 end

@@ -78,9 +78,11 @@ def save_mnist_to_mat_train(mat_file_path):
     #test_set = test_images.numpy().reshape(-1, 28*28)
     #test_labels = test_labels.numpy().transpose()
 
+    # Reshape the images to (batch_size, height, width, channels)
+    train_images = train_images.numpy().reshape(-1, 28, 28, 1)
     # Create a dictionary to save to .mat file
     mnist_data = {
-        'images': train_images.numpy(),
+        'images': train_images,
         'labels': train_labels.numpy(),
     }
 
@@ -117,9 +119,12 @@ def save_mnist_to_mat_test(mat_file_path):
     #test_set = test_images.numpy().reshape(-1, 28*28)
     #test_labels = test_labels.numpy().transpose()
 
+    # Reshape the images to (batch_size, height, width, channels)
+    test_images = test_images.numpy().reshape(-1, 28, 28, 1)
+
     # Create a dictionary to save to .mat file
     mnist_data = {
-        'images': test_images.numpy(),
+        'images': test_images,
         'labels': test_labels.numpy(),
     }
 

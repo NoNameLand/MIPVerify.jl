@@ -27,7 +27,7 @@ TODO.md
 # https://discourse.julialang.org/t/does-manifest-toml-belong-in-the-repository/12029/13
 Manifest.toml
 
-# Ignore datasets in mat files
+# Ignore datasets in mat files=
 *.mat
 *.bson
 *.h5

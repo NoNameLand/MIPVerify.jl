@@ -72,16 +72,21 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
     dataset = sio.loadmat(dataset_path)
 
     # Check for required keys in the dataset
-    if "train_set" not in dataset or "train_labels" not in dataset:
-        raise KeyError("The dataset file must contain 'train_set' and 'train_labels'.")
+    if "train_set" not in dataset or "train_labels" not in dataset or "test_set" not in dataset or "test_labels" not in dataset:
+        raise KeyError("The dataset file must contain 'train_set', 'train_labels', 'test_set', and 'test_labels'.")
 
     train_set = torch.from_numpy(dataset["train_set"]).float()
     train_labels = torch.from_numpy(dataset["train_labels"]).float()
+    test_set = torch.from_numpy(dataset["test_set"]).float()
+    test_labels = torch.from_numpy(dataset["test_labels"]).float()
     print("Dataset loaded successfully.")
 
     # Step 3: Prepare DataLoader
     train_dataset = TensorDataset(train_set, train_labels)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    test_dataset = TensorDataset(test_set, test_labels)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Step 4: Define loss function and optimizer
     criterion = nn.MSELoss()
@@ -104,12 +109,25 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
         print(f"Epoch [{epoch + 1}/{epochs}], Loss: {avg_loss:.4f}")
     print("Training completed.")
 
-    # Step 6: Save the trained model as a .pth file
+    # Step 6: Evaluate the model on the test set
+    print("Evaluating the model on the test set...")
+    model.eval()
+    test_loss = 0.0
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            test_loss += loss.item()
+
+    avg_test_loss = test_loss / len(test_loader)
+    print(f"Test Loss: {avg_test_loss:.4f}")
+
+    # Step 7: Save the trained model as a .pth file
     print("Saving the trained model as .pth file...")
     torch.save(model.state_dict(), output_pth_path)
     print(f"Model saved to {output_pth_path}")
 
-    # Step 7: Save the trained model as a .mat file
+    # Step 8: Save the trained model as a .mat file
     print("Saving the trained model as .mat file...")
     # Prepare the data in the same format as the input .mat file
     trained_params = {}

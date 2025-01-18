@@ -106,9 +106,9 @@ function process_bounds()
     # -- With Partition -- #
     p = Partition(model) # The nn as a Sequential model
     index_partiotn_real = 3
-    println("The index of the partition is: ", index_partiotn_real, " and the layer is: ", find_layer_index(p, index_partiotn_real))
+    println("The index of the partition is: ", index_partiotn_real, " and the layer is: ", find_layer_index(p, index_partiotn_real), 
+    " out of ", length(p.nns), " layers")
     PartitionByLayer(p, [find_layer_index(p, index_partiotn_real)]) # Splitting in half
-    println(typeof(p.nns[1]))
     # Getting bounds for the first half
     d_1 = MIPVerify.find_adversarial_example(
         p.nns[1],
@@ -126,9 +126,11 @@ function process_bounds()
         "Time it took for the first half: '$(d_1[:TotalTime])'"
     )
     bounds_matrix = [compute_bounds(expr) for expr in d_1[:Output]]
+    # bounds_matrix_og_nn = [compute_bounds(expr) for expr in d_basic[:Output]]
     push!(p.bounds, bounds_matrix)
-    lbs = [pair[1] for pair in p.bounds[1]]
-    ubs = [pair[2] for pair in p.bounds[1]]
+    # println("The bound matrix after the first half is: " ,bounds_matrix)
+    lbs = [pair[1] for pair in bounds_matrix]
+    ubs = [pair[2] for pair in bounds_matrix]
 
     # Getting Bounds For the Second half
     d_2 = MIPVerify.find_adversarial_example(
@@ -142,6 +144,18 @@ function process_bounds()
         tightening_algorithm = tightening_algorithm,
     )
     bounds_matrix = [compute_bounds(expr) for expr in d_2[:Output]]
+    # Test if the bounds after over-approximation fully contain the bounds of the original model
+    bounds_matrix_og_nn = [compute_bounds(expr) for expr in d_basic[:Output]]
+    violation_bounds = false
+    for i in 1:size(bounds_matrix)[1]
+        if bounds_matrix[i][1] < bounds_matrix_og_nn[i][1] || bounds_matrix[i][2] > bounds_matrix_og_nn[i][2]
+            violation_bounds = true
+            println("The bounds of the approximated nn do not fully contain the bounds of the original nn")
+        end
+    end
+    if violation_bounds == false
+        println("The bounds of the approximated nn fully contain the bounds of the original nn")
+    end
     push!(p.bounds, bounds_matrix)
 
     # - Results - #
@@ -200,8 +214,8 @@ function process_bounds()
 
     #  --- Linear Constraints --- #
     boolean_linear_constrains_mat = falses(3, 3)
-    for i in 1:3
-        for j in 1:3
+    for i in 1:1
+        for j in 1:1
             d_test_constraints = test_linear_constraint(
                 model, 
                 sample_image, 

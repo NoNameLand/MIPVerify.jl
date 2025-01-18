@@ -17,6 +17,23 @@ julia>
 module UtilsModule
     export compute_bounds
 
+    """
+    Compute the lower and upper bounds of an affine expression.
+
+    # Arguments
+    - `aff_expr::AffExpr`: The affine expression for which to compute the bounds.
+
+        terms_dict = Dict(aff_expr.terms)
+        for (var, coeff) in terms_dict
+    - A vector containing the lower bound and upper bound of the affine expression.
+
+    # Examples
+    ```julia
+    aff_expr = AffExpr(constant=1.0, terms=[(x, 2.0), (y, -3.0)])
+    bounds = compute_bounds(aff_expr)
+    println(bounds)  # Output: [lower_bound, upper_bound]
+    ```
+    """
     function compute_bounds(aff_expr::AffExpr)
         # Initialize bounds with the constant term
         lb = aff_expr.constant
@@ -32,7 +49,6 @@ module UtilsModule
                 ub += coeff * lower_bound(var)  # Negative coefficient → maximum contribution
             end
         end
-
         return [lb, ub]
     end
 

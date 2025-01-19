@@ -22,7 +22,7 @@ function MIPVerify.get_perturbation_specific_keys(
     input_range = CartesianIndices(size(input))
     # v_e is the perturbation added
     v_e = map(
-        _ -> @variable(m, lower_bound = 0, upper_bound = 0),
+        i -> @variable(m, lower_bound = 0, upper_bound = pp.ub[i]), # For numerical stability
         input_range,
     )
     # v_x0 is the input with the perturbation added

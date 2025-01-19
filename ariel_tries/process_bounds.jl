@@ -16,7 +16,7 @@ include("utils/visual_functions.jl")
 
 function process_bounds()
     # --- Constans --- # 
-    eps = 0.01
+    eps = 0.008
     norm_order = Inf
     tightening_algorithm = lp
 
@@ -34,7 +34,7 @@ function process_bounds()
 
     # Creating Model
     println("The current dir is: ", pwd())
-    path_to_network = params["path_to_nn_adjust"]#"ariel_tries/networks/mnist_model.mat"  # Path to network
+    path_to_network = params["path_to_nn_adjust"] #"ariel_tries/networks/mnist_model.mat"  # Path to network
     println("The path to the network is: ", path_to_network)
     model = create_sequential_model(path_to_network, "model.n1")
     println(model)
@@ -129,8 +129,8 @@ function process_bounds()
     # bounds_matrix_og_nn = [compute_bounds(expr) for expr in d_basic[:Output]]
     push!(p.bounds, bounds_matrix)
     # println("The bound matrix after the first half is: " ,bounds_matrix)
-    lbs = [pair[1] for pair in bounds_matrix]
-    ubs = [pair[2] for pair in bounds_matrix]
+    lbs = [bounds_matrix[i][1] for i in 1:size(bounds_matrix)[1]]
+    ubs = [bounds_matrix[i][2] for i in 1:size(bounds_matrix)[1]]
 
     # Getting Bounds For the Second half
     d_2 = MIPVerify.find_adversarial_example(
@@ -148,7 +148,9 @@ function process_bounds()
     bounds_matrix_og_nn = [compute_bounds(expr) for expr in d_basic[:Output]]
     violation_bounds = false
     for i in 1:size(bounds_matrix)[1]
-        if bounds_matrix[i][1] < bounds_matrix_og_nn[i][1] || bounds_matrix[i][2] > bounds_matrix_og_nn[i][2]
+        println("Bounds of the approximated nn: ", bounds_matrix[i])
+        println("Bounds of the original nn: ", bounds_matrix_og_nn[i])
+        if bounds_matrix[i][1] > bounds_matrix_og_nn[i][1] || bounds_matrix[i][2] < bounds_matrix_og_nn[i][2]
             violation_bounds = true
             println("The bounds of the approximated nn do not fully contain the bounds of the original nn")
         end
@@ -188,6 +190,7 @@ function process_bounds()
     # Testing spurious_functions
     # Trying to Convert
     # convert(Vector{<:Real}, value.(d_2[:PerturbedInput]))
+    spurious_example = false # The spurious example
     if d_2[:SolveStatus] == MOI.OPTIMAL
         result =  verify_model2(
             model, 
@@ -210,36 +213,63 @@ function process_bounds()
         else
             println("No feasible solution found.")
         end
+        spurious_example = value.(result[:PerturbedInput])
     end
 
-    #  --- Linear Constraints --- #
-    boolean_linear_constrains_mat = falses(3, 3)
-    for i in 1:1
-        for j in 1:1
-            d_test_constraints = test_linear_constraint(
-                model, 
-                sample_image, 
-                Gurobi.Optimizer,
-                Dict("output_flag" => false, "MIPFocus" => 1), 
-                MIPVerify.LInfNormBoundedPerturbationFamily(eps),
-                i, # First index
-                j, # second index
-                tightening_algorithm, 
-                MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
-            )
-            if d_test_constraints[:SolveStatus] == MOI.OPTIMAL
-                solution_word = "does not hold"
-            else
-                solution_word = "holds"
-                boolean_linear_constrains_mat[i, j] = true
-            end
-            notice(
-                MIPVerify.LOGGER,
-                "The constraint n[index1] < n[index2] $solution_word"
+    # --- Linear Constraints --- #
+    bounds = p.bounds[1] # bounds_matrix_og_nn # p.bounds[1] # Bounds of the first layer
+    num_vars = length(bounds)
+    println("Size of bounds: ", length(bounds))
+    println("Number of variables: ", num_vars)
+    # Vector of vector to matrix
+    bounds = hcat(bounds...)
+    # FLoat64 ro Real
+    bounds = convert(Matrix{Real}, bounds)
+
+    linear_constraint_mat_bool = falses((num_vars, num_vars))
+    for i in 1:num_vars
+        for j in 1:num_vars
+            # Create a linear constraint of coeffs [1*i, -1*j]* x <= 0 (n[i] <= n[j])
+            coeffs = zeros(Real, (num_vars, 1))
+            # Matrix to vector
+            coeffs = vec(coeffs)
+            # Float64 to Real
+            coeffs = convert(Vector{<:Real}, coeffs)
+            coeffs[i] = 1
+            coeffs[j] = -1
+            rhs = 0
+            linear_constraint_mat_bool[i, j] = calc_linear_constraint(
+                bounds,
+                coeffs,
+                rhs
             )
         end
-
     end
+    plot_binary_matrix(linear_constraint_mat_bool)
+
+    # --- Activation Pattern ---#
+    # Getting the activation pattern
+    # println("The spurious example is: ", spurious_example)
+    if !(spurious_example isa Bool && spurious_example == false)
+        activation_pattern = find_activation_pattern_spurious_example(model, spurious_example)
+    end
+    println("The activation pattern in the last layer is: ", activation_pattern[end])
+end
+
+"""
+    #  --- Linear Constraints --- #
+    model_linear_constraints = p.nns[1]
+    index1 = collect(1:length(model_linear_constraints.layers[end-1].bias))
+    boolean_linear_constrains_mat = test_linear_constraint(
+        model_linear_constraints, 
+        sample_image, 
+        Gurobi.Optimizer,
+        Dict("output_flag" => false, "MIPFocus" => 1), 
+        MIPVerify.LInfNormBoundedPerturbationFamily(eps),
+        index1, # First index
+        tightening_algorithm, 
+        MIPVerify.get_default_tightening_options(Gurobi.Optimizer),
+    )
     println("The matrix of the linear constraints is: ", boolean_linear_constrains_mat)
     plot_binary_matrix(boolean_linear_constrains_mat) # Plotting the matrix
-end
+"""

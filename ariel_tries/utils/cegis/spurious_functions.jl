@@ -77,8 +77,8 @@ function verify_model2(
             m = d[:Model]
             
             # Defining output lower and upper constraints
-            desired_output_lower = output_desired .- 1e-3 # Hardcoded tolerance
-            desired_output_upper = output_desired .+ 1e-3 # Hardcoded tolerance
+            desired_output_lower = output_desired .- 1e-10 # Hardcoded tolerance
+            desired_output_upper = output_desired .+ 1e-10 # Hardcoded tolerance
             
             # Add constraints for the desired output area
             @constraint(m, output_desired .<= desired_output_upper)
@@ -124,6 +124,9 @@ function get_variable_from_index(
 )
     return model[:x][index]
 end
+
+
+# --- Linear Constraint Testing --- #
 
 function test_linear_constraint(
     nn::NeuralNet,
@@ -175,6 +178,113 @@ function test_linear_constraint(
     return d
 end
 
+function test_linear_constraint(
+    nn::NeuralNet,
+    input::Array{<:Real, 4},
+    optimizer,
+    main_solve_options::Dict,
+    pp::MIPVerify.PerturbationFamily, 
+    index1::Array{Int},
+    index2::Array{Int},
+    tightening_algorithm::MIPVerify.TighteningAlgorithm = MIPVerify.DEFAULT_TIGHTENING_ALGORITHM,
+    tightening_options::Dict = MIPVerify.get_default_tightening_options(optimizer),
+
+    )::BitMatrix
+    
+        index1_full = index1# get_constraints_index(nn, length(nn.layers), index1)
+        index2_full = index2 # get_constraints_index(nn, length(nn.layers), index2)
+        d = Dict() # Empty dictionary to store results
+
+        # Calculate predicted index
+        predicted_output = input |> nn
+        notice(
+            MIPVerify.LOGGER,
+            "Attempting to test if a linear constraint holds",
+        )
+        merge!(d, MIPVerify.get_model(nn, input, pp, optimizer, tightening_options, tightening_algorithm))
+        m = d[:Model]        
+        vars_model = all_variables(m)
+        n_vars_actual = length(vars_model)
+        println("Number of variables: $n_vars_actual")
+        n_vars_calc = calc_num_expected_vars(nn, size(input))
+        println("Number of variables calculated: $n_vars_calc")
+        # Add the negation of the linear constraint index1 <= index2
+        results_mat = falses(length(index1), length(index2))
+        for (i, num1) in enumerate(index1)
+            for (j, num2) in enumerate(index2)
+                c = @constraint(m, d[:Output][num1] >= d[:Output][num2])
+                # Optimize the model
+                set_optimizer(m, optimizer)
+                set_optimizer_attributes(m, main_solve_options...)
+                optimize!(m)
+                solve_status = JuMP.termination_status(m)
+                result = solve_status == MOI.OPTIMAL
+                # println("Result: $result")
+                results_mat[i, j] = result
+                delete(m, c)
+            end
+        end
+        return results_mat
+end
+
+function test_linear_constraint(
+    nn::NeuralNet,
+    input::Array{<:Real, 4},
+    optimizer,
+    main_solve_options::Dict,
+    pp::MIPVerify.PerturbationFamily, 
+    index1::Array{Int},
+    tightening_algorithm::MIPVerify.TighteningAlgorithm = MIPVerify.DEFAULT_TIGHTENING_ALGORITHM,
+    tightening_options::Dict = MIPVerify.get_default_tightening_options(optimizer),
+
+    )::BitMatrix
+    
+        index1_full = index1# get_constraints_index(nn, length(nn.layers), index1)
+        index2_full = index1 # get_constraints_index(nn, length(nn.layers), index2)
+        d = Dict() # Empty dictionary to store results
+
+        # Calculate predicted index
+        predicted_output = input |> nn
+        notice(
+            MIPVerify.LOGGER,
+            "Attempting to test if a linear constraint holds",
+        )
+        merge!(d, MIPVerify.get_model(nn, input, pp, optimizer, tightening_options, tightening_algorithm))
+        m = d[:Model]        
+        vars_model = all_variables(m)
+        n_vars_actual = length(vars_model)
+        println("Number of variables: $n_vars_actual")
+        n_vars_calc = calc_num_expected_vars(nn, size(input))
+        println("Number of variables calculated: $n_vars_calc")
+        # Add the negation of the linear constraint index1 <= index2
+        results_mat = falses(length(index1), length(index2))
+        for (i, num1) in enumerate(index1)
+            for (j, num2) in enumerate(index2)
+                if num1 == num2
+                    results_mat[i, j] = true
+                    continue
+                end
+                if num1 > num2
+                    continue
+                end
+                c = @constraint(m, d[:Output][num1] >= d[:Output][num2])
+                # Optimize the model
+                set_optimizer(m, optimizer)
+                set_optimizer_attributes(m, main_solve_options...)
+                optimize!(m)
+                solve_status = JuMP.termination_status(m)
+                result = solve_status == MOI.OPTIMAL
+                # println("Result: $result")
+                results_mat[i, j] = result
+                delete(m, c)
+            end
+        end
+        # Make it symmetric
+        results_mat = results_mat .| transpose(results_mat)
+        return results_mat
+end
+
+
 function calc_num_expected_vars(
     nn::NeuralNet,
     input_shape::Tuple,
@@ -188,4 +298,88 @@ function calc_num_expected_vars(
     end
     num_vars += 2*(input_shape[1] * input_shape[2] * input_shape[3]) # Input Vars and Perturbation Vars
     return num_vars
+end
+
+
+"""
+    calc_linear_constraint(bounds::Array{Real, 2}, coeffs::Array{Real, 1}, rhs::Real)
+    A function to calculate if the linear constraint imposed by the coeffs is satisfied by the bounds.
+    The linear constraint is of the form: coeffs * x <= rhs, where x is the input vector which is bounded by the bounds.
+    The function returns a boolean value indicating if the constraint is satisfied or not.
+"""
+function calc_linear_constraint(
+    bounds::Array{Real, 2},
+    coeffs::Array{Real, 1}, 
+    rhs::Real
+)::Bool
+    # Calculate the minimum and maximum values of the linear constraint
+    # Calculating the minimum vqlue of the expression
+    
+    min_val = 0
+    for i in 1:length(coeffs)
+        min_val += if coeffs[i] > 0 minimum(bounds[:, i]) * coeffs[i] else maximum(bounds[:, i]) * coeffs[i] end
+    end
+    max_val = 0
+    for i in 1:length(coeffs)
+        max_val += if coeffs[i] > 0 maximum(bounds[:, i]) * coeffs[i] else minimum(bounds[:, i]) * coeffs[i] end
+    end
+    """
+    for i in 1:length(coeffs)
+        if coeffs[i] < 0
+            bounds[:, i] = reverse(bounds[:, i])
+        end
+    end
+    min_val = sum(minimum(bounds, dims=1) .* coeffs)
+    max_val = sum(maximum(bounds, dims=1) .* coeffs)
+    """
+    # Check if the constraint is satisfied
+    return max_val <= rhs 
+end
+
+# --- Finding Activation Pattern --- # 
+"""
+    find_activation_pattern_spurious_example
+    A function to find the activation pattern of a spurious example.
+    Arguments:
+        - nn: The neural network model
+        - input: The input to the neural network (the spurious example)
+    Returns:
+        - A dictionary containing the activation pattern of the spurious example
+"""
+function find_activation_pattern_spurious_example(
+    nn::NeuralNet,
+    input::Array{<:Real, 4},
+)::Any
+    # Initialize the dictionary to store the activation pattern
+    activation_pattern = []
+    # Loop through each layer of the neural network
+    output_last_layer = input
+    for (i, layer) in enumerate(nn.layers)
+        # Check if the layer is a ReLU layer
+        output_layer = layer(output_last_layer)
+        if layer isa ReLU
+            # Calculate the activation pattern of the ReLU layer
+            push!(activation_pattern, output_layer .> 0)
+        end
+        output_last_layer = output_layer
+    end
+    return activation_pattern
+end
+
+""" Create a constraint for the activation pattern of the spurious example
+    Arguments:
+        - activation_pattern: The activation pattern of the spurious example
+        - layer_num: The layer number to create the constraint for
+        - neuron_num: The neuron number to create the constraint for
+    Returns:
+        - A constraint for the activation pattern of the spurious example
+"""
+function create_constraint_activation_pattern(
+    activation_pattern::Array{Bool},
+    model::JuMP.Model,
+    output::Any, # Check the type 
+)
+    for i in 1:length(activation_pattern)
+        @constraint(model, output[i] == 0)
+    end
 end

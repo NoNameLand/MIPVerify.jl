@@ -1,5 +1,6 @@
-from nn_utils import train_model, save_model_layers, adjust_model_weights
+from nn_utils import train_model, save_model_layers, adjust_model_weights, evaluate_network
 import json
+import torch
 
 nn_path = "ariel_tries/networks.mat"
 dataset_path = "deps/datasets/mnist/mnist_data.mat" #TODO: Add path to mnist dataset
@@ -160,6 +161,7 @@ layer_definitions = [
     }
 ]
 """
+
 layer_definitions = [
 {
     'type': 'fc',
@@ -204,12 +206,18 @@ train_model(
     output_pth_path=params["path_to_nn_pth"],
     output_mat_path=params["path_to_nn_mat"],
     log_file_path=params["log_file_path_train"],
-    epochs=10,# Train for 10 epochs
-    batch_size=64, # Batch size of 64, can be increased if you have more memory. 
-    learning_rate=0.003, # Learning rate of 0.003
-    weight_decay=8e-3, # Weight decay of 4e-3, to prevent overfitting. 
-    num_folds=5 # Use 20 folds for cross-validation
+    epochs=30,# Train for 10 epochs
+    batch_size=128, # Batch size of 64, can be increased if you have more memory. 
+    learning_rate=0.001, # Learning rate of 0.003
+    weight_decay=1e-4, # Weight decay of 4e-3, to prevent overfitting. 
+    num_folds=10 # Use 20 folds for cross-validation
 )
 
+
+# Test the model
+
+print(evaluate_network(params["path_to_nn_pth"], params["dataset_path"]))
+
+
 # Adjust the model weights for MIPVerify.jl
-adjust_model_weights(save_path, params["path_to_nn_adjust"])
+# adjust_model_weights(save_path, params["path_to_nn_adjust"])

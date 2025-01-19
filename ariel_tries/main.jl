@@ -2,6 +2,7 @@ using ArgParse
 using MIPVerify
 
 # Adding the function of the main
+# include("../src/MIPVerify.jl")
 include("process_bounds.jl")
 include("utils/cegis/spurious_functions.jl")
 
@@ -30,8 +31,6 @@ function main()
 
     # Calling the function
     process_bounds()
-
-
 end
 
 # Run the script if executed directly

@@ -348,7 +348,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
         fold_results.append(val_accuracy)
         if val_accuracy > best_accuracy:
             best_accuracy = val_accuracy
-            best_model_state = model.state_dict()
+            best_model_state = model
             best_model = model
             logging.info(f"This fold ({fold + 1}) is the best yet, with accuracy of {val_accuracy:.2f}%")
 
@@ -358,7 +358,7 @@ def train_model(network_path, dataset_path, output_pth_path, output_mat_path, ep
 
     # Step 11: Save the trained model as a .pth file
     logging.info("Saving the best trained model as .pth file...")
-    torch.save(best_model_state, output_pth_path)
+    torch.save(best_model, output_pth_path)
     logging.info(f"Model saved to {output_pth_path}")
     
     # Step 12: Save the trained model as a .mat file
@@ -435,3 +435,76 @@ def adjust_model_weights(input_model_path, output_model_path):
     # Save the adjusted model to a .mat file
     sio.savemat(output_model_path, adjusted_model_data)
     print(f"Adjusted model saved to {output_model_path}")
+
+# ...existing code...
+
+def evaluate_network(model_path, test_data_path):
+    """
+    Evaluates the network's success rate on the test data.
+
+    Parameters:
+    model_path (str): Path to the .pth file containing the model.
+    test_data_path (str): Path to the .mat file containing the test data.
+
+    Returns:
+    float: The success rate of the network on the test data.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    # Load the model from the .pth file
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found at {model_path}")
+    
+    model = torch.load(model_path, weights_only=True) # weights_only is prone to attacks when False.
+    model.to(device)
+    model.eval()
+
+    # Load the test data from the .mat file
+    if not os.path.exists(test_data_path):
+        raise FileNotFoundError(f"Test data file not found at {test_data_path}")
+    test_data = sio.loadmat(test_data_path)
+
+    # Check for required keys in the test data
+    if "test_set" not in test_data or "test_labels" not in test_data:
+        raise KeyError("The test data file must contain 'test_set' and 'test_labels'.")
+
+    test_set = test_data["test_set"]
+    test_labels = test_data["test_labels"]
+
+    # Reshape and convert data based on the first layer
+    if isinstance(model[0], nn.Conv2d):
+        test_set = test_set.reshape(test_set.shape[0], 28, 28)  # Adjust based on actual image size
+        if test_set.ndim == 3:
+            test_set = np.expand_dims(test_set, axis=1)
+        elif test_set.ndim == 4 and test_set.shape[1] > 1:
+            pass
+        else:
+            raise ValueError("Unsupported test_set shape for convolutional layers.")
+    else:
+        pass  # For fully connected layers, assume data is already flattened
+
+    test_set = torch.from_numpy(test_set).float().to(device)
+
+    # Process labels
+    if test_labels.ndim > 1 and test_labels.shape[0] > 1:
+        test_labels = np.argmax(test_labels, axis=0)
+    elif test_labels.ndim > 1 and test_labels.shape[0] == 1:
+        test_labels = test_labels.squeeze()
+    test_labels = torch.from_numpy(test_labels).long().to(device)
+
+    # Evaluate the model
+    test_dataset = TensorDataset(test_set, test_labels)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    success_rate = correct / total
+    return success_rate

@@ -4,6 +4,11 @@ using JuMP
 using MathOptInterface
 using JSON
 using Memento
+using ProgressMeter
+using Statistics
+using StatsBase
+using Distributions
+using MAT
 
 # --- Include Functions --- #
 include("../src/logging.jl")
@@ -14,16 +19,108 @@ include("Partition.jl")
 include("utils/partition_addons.jl")
 include("utils/visual_functions.jl")
 
+function frac_correct_mine(nn::NeuralNet, dataset::MIPVerify.LabelledDataset, num_samples::Integer, output_path::String)::Tuple{Real, Vector{Matrix{Float64}}}
+    num_correct = 0.0
+    num_samples = min(num_samples, MIPVerify.num_samples(dataset))
+    p = Progress(num_samples, desc = "Computing fraction correct...", enabled = isinteractive())
+
+    # Initialize a list of matrices to store neuron values for linear layers
+    num_layers = length(nn.layers)
+    neuron_values = [zeros(Float64, size(layer.bias, 1), num_samples) for layer in nn.layers if layer isa Linear]
+
+    for sample_index in 1:num_samples
+        input = MIPVerify.get_image(dataset.images, sample_index)
+        actual_label = MIPVerify.get_label(dataset.labels, sample_index)
+        
+        # Forward pass through the network and store neuron values for linear layers
+        x = input
+        linear_layer_index = 1
+        for layer in nn.layers
+            x = layer(x)
+            if layer isa Linear
+                neuron_values[linear_layer_index][:, sample_index] = x
+                linear_layer_index += 1
+            end
+        end
+
+        predicted_label = (x |> MIPVerify.get_max_index) - 1 #TODO: - 1 Mbe Needed
+        # println("Predicted Label is: ", predicted_label, " Actual Label is: ", actual_label)
+        if actual_label == predicted_label
+            num_correct += 1
+        end
+        next!(p)
+    end
+
+    accuracy = num_correct / num_samples
+
+    # Save neuron activations to a .mat file
+    neuron_activations = Dict{String, Any}()
+    for (i, activations) in enumerate(neuron_values)
+        neuron_activations["layer_$i"] = activations
+    end
+    matwrite(output_path, neuron_activations)
+
+    return accuracy, neuron_values
+end
+
+function plot_neuron_statistics(neuron_values::Vector{Matrix{Float64}}, output_path::String)
+    num_layers = length(neuron_values)
+    layer_means = [mean(mean(neuron_values[layer], dims=2)) for layer in 1:num_layers]
+    layer_variances = [mean(var(neuron_values[layer], dims=2)) for layer in 1:num_layers]
+    max_vals = [maximum(abs.(neuron_values[layer])) for layer in 1:num_layers]
+
+    plot()
+    for layer in 1:num_layers
+        max_val = max_vals[layer]
+        x = range(-2 * max_val, 2 * max_val, length=100)
+        y = pdf.(Normal(layer_means[layer], sqrt(layer_variances[layer])), x)
+        println("Mean of layer $layer: ", layer_means[layer], "Std of layer $layer: ", sqrt(layer_variances[layer]))
+        plot!(x, y, label="Layer $layer")
+    end
+
+    xlabel!("Neuron Activation")
+    ylabel!("Density")
+    title!("Neuron Activation Statistics")
+    savefig(output_path)
+end
+
+function plot_neuron_statistics_per_layer(neuron_values::Vector{Matrix{Float64}}, output_dir::String)
+    num_layers = length(neuron_values)
+    for layer in 1:num_layers
+        means = mean(neuron_values[layer], dims=2)
+        variances = var(neuron_values[layer], dims=2)
+        max_val = maximum(abs.(neuron_values[layer]))
+
+        plot()
+        for neuron in 1:size(neuron_values[layer], 1)
+            x = range(-2 * max_val, 2 * max_val, length=max(Int(ceil(10*max_val)), 100))
+            y = pdf.(Normal(means[neuron], sqrt(variances[neuron])), x)
+            plot!(x, y, label="Neuron $neuron")
+            if layer == num_layers
+                peak_x = means[neuron]
+                peak_y = pdf(Normal(means[neuron], sqrt(variances[neuron])), peak_x)
+                annotate!(peak_x, peak_y, text("$neuron", :center, 8))
+            end
+        end
+
+        xlabel!("Neuron Activation")
+        ylabel!("Density")
+        title!("Neuron Activation Statistics for Layer $layer")
+        savefig(joinpath(output_dir, "neuron_statistics_layer_$layer.png"))
+    end
+end
+
+
+
 function process_bounds()
     # --- Constans --- # 
-    eps = 0.008
+    eps = 0.00
     norm_order = Inf
     tightening_algorithm = lp
 
     # --- Model Setup --- #
     # loading params
     params = JSON.parsefile("ariel_tries/utils/params.json")
-
 
 
     # Setting log outputs
@@ -36,14 +133,29 @@ function process_bounds()
     println("The current dir is: ", pwd())
     path_to_network = params["path_to_nn_adjust"] #"ariel_tries/networks/mnist_model.mat"  # Path to network
     println("The path to the network is: ", path_to_network)
-    model = create_sequential_model(path_to_network, "model.n1")
+    model = create_sequential_model(path_to_network, "model2.n1")
+    save_model_as_mat(model, "ariel_tries/networks/julia_nn.mat")
     println(model)
+
+    # Testing Model Loading 
+    img = MIPVerify.get_image(mnist.test.images, 1)
+    println("Image Size:", size(img))
+    layer = model.layers[1]
+    flattend_img = layer(img)
+    println("Flattened Image size: ", size(flattend_img))
+
     # Print Test Accuracy
     # labelled_data_set_test = 
     println("Size of input image: ", size(MIPVerify.get_image(mnist.test.images, 1)))
     # Reshape input image to (batch_size, height, width, channels)
     # mnist.test.images = reshape(mnist.test.images, (size(mnist.test.images, 1), 28, 28, 1))
-    println("The test accuracy is: ", MIPVerify.frac_correct(model, mnist.test, length(mnist.test.labels)))
+    acc, neuron_vals = frac_correct_mine(model, mnist.test, length(mnist.test.labels), "../results/neuron_statistics_jl/neuron_activations_jl.mat")
+    println("The test accuracy is: ", acc)
+    # Plotting the neuron statistics
+    plot_neuron_statistics(neuron_vals, "../results/neuron_statistics.png")
+    plot_neuron_statistics_per_layer(neuron_vals, "../results/")
+
+    """
     # --- Finding Image to Attack --- #
     # Finding an image to local verify around
     global image_num = 1 # The sample number
@@ -120,10 +232,10 @@ function process_bounds()
         norm_order = norm_order,
         tightening_algorithm = tightening_algorithm,
     )
-    println("Time it took for first half: ", d_1[:TotalTime])    
+    println("Time it took for first half: ", d_1[:TotalTime], "s")    
     notice(
         MIPVerify.LOGGER,
-        "Time it took for the first half: '$(d_1[:TotalTime])'"
+        "Time it took for the first half: '$(d_1[:TotalTime])' s"
     )
     bounds_matrix = [compute_bounds(expr) for expr in d_1[:Output]]
     # bounds_matrix_og_nn = [compute_bounds(expr) for expr in d_basic[:Output]]
@@ -166,10 +278,10 @@ function process_bounds()
         MIPVerify.LOGGER,
         "Solve Status Approx: '$(d_2[:SolveStatus])'"
     )
-    println("Time it took for second half: ", d_2[:TotalTime])
+    println("Time it took for second half: ", d_2[:TotalTime], 's')
     notice(
         MIPVerify.LOGGER,
-        "Time it took for the second half: '$(d_2[:TotalTime])'"
+        "Time it took for the second half: '$(d_2[:TotalTime])'s"
     )
     
     notice(
@@ -204,7 +316,7 @@ function process_bounds()
             )
 
         # Step 7: Analyze the result
-        println("Time to try and find spurious example was: $(result[:TotalTime])")
+        println("Time to try and find spurious example was: $(result[:TotalTime])s")
         if result[:SolveStatus] == MOI.OPTIMAL
             println("Feasible solution found!")
             # println("Perturbed input: ", result[:PerturbedInput])
@@ -254,6 +366,7 @@ function process_bounds()
         activation_pattern = find_activation_pattern_spurious_example(model, spurious_example)
     end
     println("The activation pattern in the last layer is: ", activation_pattern[end])
+    """
 end
 
 """

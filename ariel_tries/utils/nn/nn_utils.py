@@ -8,6 +8,9 @@ import os
 import re
 from sklearn.model_selection import KFold
 import logging
+from scipy.stats import norm
+import matplotlib.pyplot as plt
+
 
 def save_model_layers(layer_definitions, save_path):
     """
@@ -418,11 +421,18 @@ def adjust_model_weights(input_model_path, output_model_path):
                 param = model_data[key]
 
                 # If it's a weight matrix for FC layer, transpose it
+                """
                 if param_type == 'weight':
                     if param.ndim == 2:
                         # Fully connected layer, transpose weight matrix
                         param = param.T  # Transpose the weight matrix
                     # Convolutional layers' weights do not need transposition
+                """
+                
+                if param_type == 'bias':
+                    if param.size[1] == 1:
+                        param.reshape(param.size[1], param.size[0])
+                
 
                 # Save the adjusted parameter
                 adjusted_model_data[f'{layer_name}/{param_type}'] = param
@@ -456,7 +466,7 @@ def evaluate_network(model_path, test_data_path):
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at {model_path}")
     
-    model = torch.load(model_path, weights_only=True) # weights_only is prone to attacks when False.
+    model = torch.load(model_path, weights_only=False) # weights_only is prone to attacks when False.
     model.to(device)
     model.eval()
 
@@ -508,3 +518,136 @@ def evaluate_network(model_path, test_data_path):
 
     success_rate = correct / total
     return success_rate
+
+
+def evaluate_network_and_save_activations(model_path, test_data_path, output_dir):
+    """
+    Evaluates the network's success rate on the test data and saves neuron activations for each layer.
+
+    Parameters:
+    model_path (str): Path to the .pth file containing the model.
+    test_data_path (str): Path to the .mat file containing the test data.
+    output_dir (str): Directory to save the neuron activations.
+
+    Returns:
+    float: The success rate of the network on the test data.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    # Load the model from the .pth file
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found at {model_path}")
+    
+    model = torch.load(model_path, weights_only=False) # weights_only is prone to attacks when False.
+    model.to(device)
+    model.eval()
+
+    # Load the test data from the .mat file
+    if not os.path.exists(test_data_path):
+        raise FileNotFoundError(f"Test data file not found at {test_data_path}")
+    test_data = sio.loadmat(test_data_path)
+
+    # Check for required keys in the test data
+    if "test_set" not in test_data or "test_labels" not in test_data:
+        raise KeyError("The test data file must contain 'test_set' and 'test_labels'.")
+
+    test_set = test_data["test_set"]
+    test_labels = test_data["test_labels"]
+
+    # Reshape and convert data based on the first layer
+    if isinstance(model[0], nn.Conv2d):
+        test_set = test_set.reshape(test_set.shape[0], 28, 28)  # Adjust based on actual image size
+        if test_set.ndim == 3:
+            test_set = np.expand_dims(test_set, axis=1)
+        elif test_set.ndim == 4 and test_set.shape[1] > 1:
+            pass
+        else:
+            raise ValueError("Unsupported test_set shape for convolutional layers.")
+    else:
+        pass  # For fully connected layers, assume data is already flattened
+
+    test_set = torch.from_numpy(test_set).float().to(device)
+
+    # Process labels
+    if test_labels.ndim > 1 and test_labels.shape[0] > 1:
+        test_labels = np.argmax(test_labels, axis=0)
+    elif test_labels.ndim > 1 and test_labels.shape[0] == 1:
+        test_labels = test_labels.squeeze()
+    test_labels = torch.from_numpy(test_labels).long().to(device)
+
+    # Evaluate the model and save neuron activations
+    test_dataset = TensorDataset(test_set, test_labels)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    correct = 0
+    total = 0
+    # Calculate the number of layers taht are linear of Conv2D
+    num_layers = 0
+    for layer in model:
+        if isinstance(layer, (nn.Linear, nn.Conv2d)):
+            num_layers += 1
+    neuron_activations = {f"layer_{i+1}": [] for i in range(num_layers)}
+
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+            outputs = inputs
+            real_idx = 0
+            for i, layer in enumerate(model):
+                outputs = layer(outputs)
+                if isinstance(layer, (nn.Linear, nn.Conv2d)):
+                    neuron_activations[f"layer_{real_idx+1}"].append(outputs.cpu().numpy())
+                    real_idx += 1
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    success_rate = correct / total
+
+    # Save neuron activations to .mat files
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    for layer, activations in neuron_activations.items():
+        activations = np.concatenate(activations, axis=0)
+        sio.savemat(os.path.join(output_dir, f"{layer}_activations.mat"), {layer: activations})
+
+    return success_rate
+
+def plot_neuron_statistics_per_layer(neuron_activations_dir, output_dir):
+    """
+    Plots neuron activation statistics for each layer and saves the plots.
+
+    Parameters:
+    neuron_activations_dir (str): Directory containing the neuron activations .mat files.
+    output_dir (str): Directory to save the plots.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for file_name in os.listdir(neuron_activations_dir):
+        if file_name.endswith("_activations.mat"):
+            layer_name = file_name.replace("_activations.mat", "")
+            activations = sio.loadmat(os.path.join(neuron_activations_dir, file_name))[layer_name]
+
+            means = np.mean(activations, axis=0)
+            variances = np.var(activations, axis=0)
+            max_val = np.max(np.abs(activations))
+
+            plt.figure()
+            for neuron in range(activations.shape[1]):
+                x = np.linspace(-2 * max_val, 2 * max_val, max(int(np.ceil(10 * max_val)), 100))
+                y = norm.pdf(x, means[neuron], np.sqrt(variances[neuron]))
+                plt.plot(x, y, label=f"Neuron {neuron}")
+                if layer_name == f"layer_{len(os.listdir(neuron_activations_dir))}":
+                    peak_x = means[neuron]
+                    peak_y = norm.pdf(peak_x, means[neuron], np.sqrt(variances[neuron]))
+                    plt.annotate(f"{neuron}", (peak_x, peak_y), textcoords="offset points", xytext=(0,10), ha='center')
+
+            plt.xlabel("Neuron Activation")
+            plt.ylabel("Density")
+            plt.title(f"Neuron Activation Statistics for {layer_name}")
+            plt.legend()
+            plt.savefig(os.path.join(output_dir, f"{layer_name}_statistics.png"))
+            plt.close()

@@ -200,6 +200,7 @@ with open("ariel_tries/utils/params.json", "r") as f:
 save_model_layers(layer_definitions, params["layers_def"])
 
 # Train the model
+"""
 train_model(
     network_path=params["layers_def"],
     dataset_path=params["dataset_path"],  # Ensure this file contains your MNIST data
@@ -212,12 +213,12 @@ train_model(
     weight_decay=1e-4, # Weight decay of 4e-3, to prevent overfitting. 
     num_folds=10 # Use 20 folds for cross-validation
 )
+"""
+adjust_model_weights(save_path, params["path_to_nn_adjust"])
 
 
 # Test the model
-
 print(evaluate_network(params["path_to_nn_pth"], params["dataset_path"]))
-
 
 # Adjust the model weights for MIPVerify.jl
 # adjust_model_weights(save_path, params["path_to_nn_adjust"])

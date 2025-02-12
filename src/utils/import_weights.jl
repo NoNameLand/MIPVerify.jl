@@ -30,7 +30,7 @@ function get_matrix_params(
 
     params = Linear(
         param_dict["$layer_name/$matrix_name"],
-        dropdims(param_dict["$layer_name/$bias_name"], dims = 1),
+        dropdims(param_dict["$layer_name/$bias_name"], dims = 1), # Should be 1
     )
 
     check_size(params, expected_size)

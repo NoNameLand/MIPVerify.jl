@@ -200,8 +200,8 @@ function frac_correct(nn::NeuralNet, dataset::LabelledDataset, num_samples::Inte
     for sample_index in 1:num_samples
         input = get_image(dataset.images, sample_index)
         actual_label = get_label(dataset.labels, sample_index)
-        predicted_label = (input |> nn |> get_max_index) #TODO: - 1 Mbe Needed
-        # println("Predicted Label is: ", predicted_label)
+        predicted_label = (input |> nn |> get_max_index) - 1 #TODO: - 1 Mbe Needed
+        println("Predicted Label is: ", predicted_label, " Actucal Label is: ", actual_label)
         if actual_label == predicted_label
             num_correct += 1
         end
